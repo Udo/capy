@@ -1,7 +1,7 @@
 # capy
 An idea for a C preprocessor
 
-'''C
+```C
 // Idea 2: C, but pre-processed
 
 // Multiline strings
@@ -87,5 +87,4 @@ string* serialize(some_struct s) {
 	}
 }
 
-
-'''
+```
