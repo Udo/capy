@@ -1,13 +1,18 @@
 #include <stdio.h>
 #include "types.c"
 #include "utils.c"
+#include "parser.c"
 
 int main(int argc, char** argv) {
 
-	struct string* s1 = string_create();
-	assign_string_chars(s1, "this will probably work");
+	if(argc <= 1)
+		return 0;
 
-	printf("hello string '%s' length=%i\n", s1->bytes, s1->length);
+	// to do: check if file exists
+
+	struct string* src_filename = string_create_with_chars(argv[1]);
+	struct string* src = file_get_contents(src_filename);
+	parse(src);
 
     return 0;
 }
