@@ -1,0 +1,93 @@
+// Idea 2: C, but pre-processed
+
+// Multiline strings
+string* s = <>this
+is just
+a multiline string</>;
+
+// Interpolated strings / string templates
+string* s = <>
+	<div id="<?= a ?>">
+	<? for(s32 i = 0; i < 10; i++) { ?>
+		<li><?= i ?></li>
+	<? } ?>
+	</div>
+</>;
+
+// Function pointers
+function<void*(u64 size)> fptr;
+// Or, can we maybe do this?
+void*(u64) fptr;
+// anonymous functions
+fptr = void*(u64 a) {
+	print(a);
+};
+// calling function pointers
+fptr(10);
+
+// enums
+enum flag {
+	THING1,
+	THING2,
+	THING3 = 10
+};
+// BUT
+flag f = THING1;
+print(f:opt_name); // calls (struct string*)hashmap_get(TypeInfo[<typeid>].opt_names, u64_hash(f))
+
+
+// Allocator switching
+#alloc default_allocator alloc, realloc, free
+// Acquire
+ptr = new(size);
+// Resize
+ptr = resize(ptr, new_size);
+// Meta allocator checks which allocator a pointer belongs to before calling that specific free()
+delete(ptr);
+
+
+// Function overloading
+void print(string* : a) {
+	printf("String: %s", a->bytes);
+}
+
+void print(s32 : a) {
+	printf("String: %i", a);
+}
+
+// optional struct keyword
+list* my_list = list_create();
+
+// Generic type annotation
+list<string>* my_list = list_create();
+
+// Code gen
+#gen each(<list* l> as <item_name>) <statement code> => {
+	list_item* _tmp = <l>->first;
+	<l:item_type>* <item_name>;
+	while(_tmp)
+	{
+		<item_name> = _tmp->data;
+		<code>
+		_tmp = _tmp->next;
+	}
+}
+
+each(my_list as item)
+{
+	print(item);
+}
+
+// Polymorphism
+s32 add_stuff(a, b, c) {
+	return a+b+c;
+}
+
+// Reflection
+string* serialize(some_struct s) {
+	each(s::fields as field_name, field_type)
+	{
+		print(s::[field_name]);
+	}
+}
+

@@ -1,0 +1,7 @@
+---
+Bug-Database: http://savannah.nongnu.org/bugs/?group=tinycc
+Bug-Submit: http://savannah.nongnu.org/bugs/?func=additem&group=tinycc
+CPE: cpe:2.3:a:tinycc:tinycc:0.9.27:*:*:*:*:*:*:*
+Repository: git://repo.or.cz/tinycc.git
+Repository-Browse: https://repo.or.cz/w/tinycc.git
+Screenshots: http://ultracopier.first-world.info/screenshots.html

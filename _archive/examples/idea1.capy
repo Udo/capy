@@ -1,0 +1,32 @@
+// Idea 1: a complete new language
+
+// variable declarations
+
+a := 1000; 					// s64 a = 1000;
+b := 1000.0; 				// f64 b = 1000.0;
+c : u8 = 8; 				// u8 c = 8;
+d := "string literal"; 		// struct string* d = string_create_with_chars("string literal");
+e := "interpolation {=a}";	// TBD
+
+struct_1 := struct {		// struct struct_1 {
+	field1 : u8;				// u8 field1;
+	field2 : u8;				// u8 field1;
+	field3 : u8;				// u8 field1;
+	field4 : string;			// struct string* field4;
+};							// };
+
+sp1 : ^struct_1 = new;		// struct struct_1* sp1 = mem_calloc(sizeof(struct struct_1), 1);
+sp2 := new struct_1;		// struct struct_1* sp1 = mem_calloc(sizeof(struct struct_1), 1);
+
+sp1 = {						//
+	field1 = 1,				// sp1->field1 = 1;
+	field2 = 2,				// sp1->field2 = 2;
+	field3 = 3,				// sp1->field3 = 3;
+	field4 = "4",			// sp1->field4 = string_create_with_chars("4");
+};
+
+fun_impl : a, b, c | s32 = {
+	=> a+b+c;
+}
+
+print(fun_impl(10, 20, 30));

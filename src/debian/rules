@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
+
+ifeq (amd64,$(DEB_HOST_ARCH))
+  DEB_I386_MULTIARCH:=$(shell CC=true dpkg-architecture -f --host-arch i386 \
+	  -q DEB_HOST_MULTIARCH)
+  DEF_I386='-DCONFIG_TRIPLET="\"$(DEB_I386_MULTIARCH)\"" -DTCC_TARGET_I386'
+endif
+
+ifeq (arm64,$(DEB_HOST_ARCH))
+  HOST_CPU=aarch64
+else ifeq (armel,$(DEB_HOST_ARCH))
+  HOST_CPU=armv4l
+else ifeq (armhf,$(DEB_HOST_ARCH))
+  HOST_CPU=armv7l
+else
+  HOST_CPU=$(DEB_HOST_ARCH)
+endif
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		--cpu=$(HOST_CPU) \
+		--triplet=$(DEB_HOST_MULTIARCH) \
+		--docdir=/usr/share/doc/tcc
+
+override_dh_auto_build-arch:
+	dh_auto_build
+ifeq (amd64,$(DEB_HOST_ARCH))
+	dh_auto_build -- cross-i386 DEF-i386=$(DEF_I386)
+
+override_dh_auto_install-arch:
+	dh_auto_install
+	dh_link usr/share/man/man1/tcc.1 usr/share/man/man1/i386-tcc.1
+endif
+
+override_dh_auto_test:
+	dh_auto_test --no-parallel
+
+execute_after_dh_strip:
+	strip --strip-unneeded --remove-section=.comment --remove-section=.note debian/tcc/usr/lib/*/tcc/bcheck.o
+
+override_dh_auto_clean:
+	[ ! -f config.mak ] || dh_auto_clean
+
+override_dh_installexamples:
+	sed -i 1s@/usr/local/bin/tcc@/usr/bin/tcc@ examples/*.c
+	dh_installexamples
+	sed -i 1s@/usr/bin/tcc@/usr/local/bin/tcc@ examples/*.c
+
+%:
+	dh $@

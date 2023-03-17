@@ -1,0 +1,2 @@
+#!/bin/bash
+./build.sh && bin/capy tests/capy1.c && ./test_capy1 
