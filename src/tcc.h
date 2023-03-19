@@ -814,10 +814,10 @@ struct TCCState {
     /* output file for preprocessing (-E) */
     FILE *ppfp;
     enum {
-	LINE_MACRO_OUTPUT_FORMAT_GCC,
-	LINE_MACRO_OUTPUT_FORMAT_NONE,
-	LINE_MACRO_OUTPUT_FORMAT_STD,
-    LINE_MACRO_OUTPUT_FORMAT_P10 = 11
+		LINE_MACRO_OUTPUT_FORMAT_GCC,
+		LINE_MACRO_OUTPUT_FORMAT_NONE,
+		LINE_MACRO_OUTPUT_FORMAT_STD,
+		LINE_MACRO_OUTPUT_FORMAT_P10 = 11
     } Pflag; /* -P switch */
     char dflag; /* -dX value */
 

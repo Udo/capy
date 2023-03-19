@@ -23,8 +23,8 @@ int main(int argc, char** argv) {
 	printf("hello world %i, %i, typeid=%i, typeid=%i, typeid=%i, typeid=%i %s\n", m.a, m2.a,
 		typeid(MyTest), typeid(int), typeid(*m), sizeof(u32), __FILE__);
 
-	printf("here are some floats %.3f\n",
-		1.23450);
+	printf("scope ID: %i\n",
+		scopeid(0));
 
 	printf("here are some strings %s\n",
 		mf);

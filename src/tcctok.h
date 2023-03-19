@@ -51,6 +51,7 @@
      DEF(TOK_ENUM, "enum")
      DEF(TOK_SIZEOF, "sizeof")
      DEF(TOK_TYPEID, "typeid")
+     DEF(TOK_SCOPEID, "scopeid")
      DEF(TOK_ATTRIBUTE1, "__attribute")
      DEF(TOK_ATTRIBUTE2, "__attribute__")
      DEF(TOK_ALIGNOF1, "__alignof")

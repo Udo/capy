@@ -97,6 +97,8 @@ static void type_to_str(char *buf, int buf_size,
 #define VT_PTRDIFF_T (VT_LONG | VT_LLONG)
 #endif
 
+int scope_counter = 0;
+
 ST_DATA struct switch_t {
     struct case_t {
         int64_t v1, v2;
@@ -124,6 +126,7 @@ static struct scope {
     struct { Sym *s; int n; } cl;
     int *bsym, *csym;
     Sym *lstk, *llstk;
+    int id;
 } *cur_scope, *loop_scope, *root_scope;
 
 /********************************************************/
@@ -394,6 +397,20 @@ ST_FUNC void check_vstack(void)
     if (vtop != vstack - 1)
         tcc_error("internal compiler error: vstack leak (%d)",
                   (int)(vtop - vstack + 1));
+}
+
+long int capy_hash_string(char* data, int length)
+{
+	long int hash = 0xfb54e02cf3c0a69;
+	long int salt = 0x22a11c9087322ab3;
+	char last = 0xc1;
+
+	for (int i = 0; i < length; i++) {
+		hash += i + salt + data[i]*last ^ (data[i]*hash) + (hash << (i % 31));
+		last = data[i];
+	}
+
+	return hash;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -2989,6 +3006,13 @@ static void type_to_str(char *buf, int buf_size,
  no_var: ;
 }
 
+int type_to_id(CType* st)
+{
+    char buf1[256];
+    type_to_str(buf1, sizeof(buf1), st, NULL);
+    return(capy_hash_string(buf1, strlen(buf1)));
+}
+
 static void type_incompatibility_error(CType* st, CType* dt, const char* fmt)
 {
     char buf1[256], buf2[256];
@@ -5373,6 +5397,11 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
     post_type(post, ad, storage, 0);
     parse_attribute(ad);
     type->t |= storage;
+
+	char tbuf1[256];
+	type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
+    printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
+
     return ret;
 }
 
@@ -5710,6 +5739,7 @@ ST_FUNC void unary(void)
 	}
         break;
 
+    case TOK_SCOPEID:
     case TOK_TYPEID:
     case TOK_SIZEOF:
     case TOK_ALIGNOF1:
@@ -5726,7 +5756,10 @@ ST_FUNC void unary(void)
         if (s && s->a.aligned)
             align = 1 << (s->a.aligned - 1);
         if (t == TOK_TYPEID) {
-			vpushs((intptr_t)(type.ref) | type.t);
+			vpushs(type_to_id(&type));
+		}
+        else if (t == TOK_SCOPEID) {
+			vpushs(cur_scope->id);
 		}
         else if (t == TOK_SIZEOF) {
             if (!(type.t & VT_VLA)) {
@@ -6947,6 +6980,7 @@ void new_scope(struct scope *o)
     *o = *cur_scope;
     o->prev = cur_scope;
     cur_scope = o;
+    cur_scope->id = ++scope_counter;
 
     /* record local declaration stack position */
     o->lstk = local_stack;
