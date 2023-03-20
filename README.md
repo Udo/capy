@@ -2,6 +2,8 @@
 
 ## C compatibility
 
+Relatively normal C code should compile without changes.
+
 ## -> Operator optional
 
 ```C
@@ -33,3 +35,9 @@ The `struct` keyword can be omitted when declaring a struct variable.
 ## Runtime type information
 
 - *`typeid()`* for runtime access to a numeric type ID
+
+# Install
+
+## Compile
+
+Execute `./configure` before compiling for the first time. Afterwards, build the executable by using the `./build` script.
