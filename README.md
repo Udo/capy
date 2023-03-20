@@ -7,10 +7,10 @@ Relatively normal C code should compile without changes.
 ## -> Operator optional
 
 ```C
-	void do_something(MyStruct* m)
-	{
-		printf("Name: %s\n", m.name);
-	}
+void do_something(MyStruct* m)
+{
+	printf("Name: %s\n", m.name);
+}
 ```
 
 You can use the `.` operator instead of `->` when accessing members of struct pointers.
