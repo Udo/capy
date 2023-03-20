@@ -45,8 +45,8 @@
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 // Define screen dimensions
-#define SCREEN_WIDTH    800
-#define SCREEN_HEIGHT   600
+#define SCREEN_WIDTH    1280
+#define SCREEN_HEIGHT   720
 
 int main(int argc, char* argv[])
 {
@@ -72,6 +72,7 @@ int main(int argc, char* argv[])
 #endif
 
     // Create window
+    SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
     SDL_Window *window = SDL_CreateWindow("Basic C SDL project",
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SDL_WINDOWPOS_UNDEFINED,
@@ -109,12 +110,14 @@ int main(int argc, char* argv[])
             bool quit = false;
 
             // Event loop
+            f32 tick = 0;
             while(!quit)
             {
+				tick += 1.0/60.0;
                 SDL_Event e;
 
                 // Wait indefinitely for the next available event
-                SDL_WaitEvent(&e);
+                SDL_PollEvent(&e);
 
                 // User requests quit
                 if(e.type == SDL_QUIT)
@@ -132,6 +135,8 @@ int main(int argc, char* argv[])
                 SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
 
                 // Draw filled square
+                squareRect.w = (int)(200.0 + 100.0*sin(6.28*tick));
+                squareRect.x = SCREEN_WIDTH / 2 - squareRect.w / 2;
                 SDL_RenderFillRect(renderer, &squareRect);
 
                 // Update screen
