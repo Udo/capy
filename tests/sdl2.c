@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define SDL_DISABLE_IMMINTRIN_H
+//#define SDL_DISABLE_IMMINTRIN_H
 //#include <SDL2/SDL.h>
 #link "SDL2"
 #include "../lib/SDL2/SDL.h"
