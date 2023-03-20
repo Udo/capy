@@ -13,6 +13,7 @@ DONE
 	* #product "NAME_OF_OUTPUT_FILE" (same as the -o cmd line switch)
 	* #library "LIBRARY_PATH_TO_ADD" (same as the -L cmd line switch)
 	* #link "LINK_LIBRARY_FILE" (same as the -l cmd line switch)
+*	Makefile now outputs capy executable
 
 OPEN
 *	capy strings

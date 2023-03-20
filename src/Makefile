@@ -68,7 +68,7 @@ endif
 TCCFLAGS-unx = -B$(TOP) -I$(TOPSRC)/include -I$(TOPSRC) -I$(TOP)
 TCCFLAGS-win = -B$(TOPSRC)/win32 -I$(TOPSRC)/include -I$(TOPSRC) -I$(TOP) -L$(TOP)
 TCCFLAGS = $(TCCFLAGS$(CFG))
-TCC = $(TOP)/tcc$(EXESUF) $(TCCFLAGS)
+TCC = $(TOP)/capy$(EXESUF) $(TCCFLAGS)
 
 # cross compiler targets to build
 TCC_X = i386 x86_64 i386-win32 x86_64-win32 x86_64-osx arm arm64 arm-wince c67
@@ -100,7 +100,7 @@ ifeq ($(INCLUDED),no)
 # --------------------------------------------------------------------------
 # running top Makefile
 
-PROGS = tcc$(EXESUF)
+PROGS = capy$(EXESUF)
 TCCLIBS = $(LIBTCCDEF) $(LIBTCC) $(LIBTCC1)
 TCCDOCS = tcc.1 tcc-doc.html tcc-doc.info
 
@@ -110,14 +110,14 @@ all: $(PROGS) $(TCCLIBS) $(TCCDOCS)
 LIBTCC1_X = i386 x86_64 i386-win32 x86_64-win32 x86_64-osx arm arm64 arm-wince
 LIBTCC1_X += riscv64
 
-PROGS_CROSS = $(foreach X,$(TCC_X),$X-tcc$(EXESUF))
+PROGS_CROSS = $(foreach X,$(TCC_X),$X-capy$(EXESUF))
 LIBTCC1_CROSS = $(foreach X,$(LIBTCC1_X),$X-libtcc1.a)
 
 # build cross compilers & libs
 cross: $(LIBTCC1_CROSS) $(PROGS_CROSS)
 
 # build specific cross compiler & lib
-cross-%: %-tcc$(EXESUF) %-libtcc1.a ;
+cross-%: %-capy$(EXESUF) %-libtcc1.a ;
 
 install: ; @$(MAKE) --no-print-directory  install$(CFG)
 install-strip: ; @$(MAKE) --no-print-directory  install$(CFG) CONFIG_strip=yes
@@ -221,14 +221,14 @@ $(X)%.o : %.c $(LIBTCC_INC)
 $(X)tcc.o : tcctools.c
 
 # Host Tiny C Compiler
-tcc$(EXESUF): tcc.o $(LIBTCC)
-	$S$(CC) -o $@ $^ $(LIBS) $(LDFLAGS) $(LINK_LIBTCC)
+capy$(EXESUF): tcc.o $(LIBTCC)
+	$S$(CC) -o capy $^ $(LIBS) $(LDFLAGS) $(LINK_LIBTCC)
 
 # Cross Tiny C Compilers
-%-tcc$(EXESUF): FORCE
+%-capy$(EXESUF): FORCE
 	@$(MAKE) --no-print-directory $@ CROSS_TARGET=$* ONE_SOURCE=$(or $(ONE_SOURCE),yes)
 
-$(CROSS_TARGET)-tcc$(EXESUF): $(TCC_FILES)
+$(CROSS_TARGET)-capy$(EXESUF): $(TCC_FILES)
 	$S$(CC) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 # profiling version
@@ -248,11 +248,11 @@ libtcc.so: LDFLAGS+=-fPIC
 
 # OSX dynamic libtcc library
 libtcc.dylib: $(LIBTCC_OBJ)
-	$S$(CC) -dynamiclib $(DYLIBVER) -install_name @rpath/$@ -o $@ $^ $(LDFLAGS) 
+	$S$(CC) -dynamiclib $(DYLIBVER) -install_name @rpath/$@ -o $@ $^ $(LDFLAGS)
 
 # OSX libtcc.dylib (without rpath/ prefix)
 libtcc.osx: $(LIBTCC_OBJ)
-	$S$(CC) -shared -install_name libtcc.dylib -o libtcc.dylib $^ $(LDFLAGS) 
+	$S$(CC) -shared -install_name libtcc.dylib -o libtcc.dylib $^ $(LDFLAGS)
 
 # windows dynamic libtcc library
 libtcc.dll : $(LIBTCC_OBJ)
@@ -260,16 +260,16 @@ libtcc.dll : $(LIBTCC_OBJ)
 libtcc.dll : DEFINES += -DLIBTCC_AS_DLL
 
 # import file for windows libtcc.dll
-libtcc.def : libtcc.dll tcc$(EXESUF)
+libtcc.def : libtcc.dll capy$(EXESUF)
 	$S$(XTCC) -impdef $< -o $@
-XTCC ?= ./tcc$(EXESUF)
+XTCC ?= ./capy$(EXESUF)
 
 # TinyCC runtime libraries
-libtcc1.a : tcc$(EXESUF) FORCE
+libtcc1.a : capy$(EXESUF) FORCE
 	@$(MAKE) -C lib
 
 # Cross libtcc1.a
-%-libtcc1.a : %-tcc$(EXESUF) FORCE
+%-libtcc1.a : %-capy$(EXESUF) FORCE
 	@$(MAKE) -C lib CROSS_TARGET=$*
 
 .PRECIOUS: %-libtcc1.a
@@ -399,7 +399,7 @@ testspp.%:
 	@$(MAKE) -C tests/pp $@
 
 clean:
-	@rm -f tcc$(EXESUF) tcc_p$(EXESUF) *-tcc$(EXESUF) tcc.pod
+	@rm -f capy$(EXESUF) tcc tcc_p$(EXESUF) *-capy$(EXESUF) tcc.pod
 	@rm -f *.o *.a *.so* *.out *.log lib*.def *.exe *.dll a.out tags TAGS *.dylib
 	@$(MAKE) -s -C lib $@
 	@$(MAKE) -s -C tests $@

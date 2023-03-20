@@ -16,6 +16,7 @@
 a.out
 tcc_g
 tcc
+capy
 *-tcc
 libtcc*.def
 

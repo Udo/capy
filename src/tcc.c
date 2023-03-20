@@ -25,17 +25,18 @@
 #include "tcctools.c"
 
 static const char help[] =
+    "Capy language extensions v0.1 - Copyright (C) 2023 Udo Schroeter\n"
     "Tiny C Compiler "TCC_VERSION" - Copyright (C) 2001-2006 Fabrice Bellard\n"
-    "Usage: tcc [options...] [-o outfile] [-c] infile(s)...\n"
-    "       tcc [options...] -run infile [arguments...]\n"
+    "Usage: capy [options...] [-o outfile] [-c] infile(s)...\n"
+    "       capy [options...] -run infile [arguments...]\n"
     "General options:\n"
     "  -c           compile only - generate an object file\n"
     "  -o outfile   set output filename\n"
     "  -run         run compiled source\n"
-    "  -fflag       set or reset (with 'no-' prefix) 'flag' (see tcc -hh)\n"
+    "  -fflag       set or reset (with 'no-' prefix) 'flag' (see capy -hh)\n"
     "  -std=c99     Conform to the ISO 1999 C standard.\n"
     "  -std=c11     Conform to the ISO 2011 C standard (default).\n"
-    "  -Wwarning    set or reset (with 'no-' prefix) 'warning' (see tcc -hh)\n"
+    "  -Wwarning    set or reset (with 'no-' prefix) 'warning' (see capy -hh)\n"
     "  -w           disable all warnings\n"
     "  --version -v show version\n"
     "  -vv          show search paths or loaded files\n"
@@ -56,7 +57,7 @@ static const char help[] =
     "  -shared      generate a shared library/dll\n"
     "  -rdynamic    export all global symbols to dynamic linker\n"
     "  -soname      set name for shared library to be used at runtime\n"
-    "  -Wl,-opt[=val]  set linker option (see tcc -hh)\n"
+    "  -Wl,-opt[=val]  set linker option (see capy -hh)\n"
     "Debugger options:\n"
     "  -g           generate runtime debug info\n"
 #ifdef CONFIG_TCC_BCHECK
@@ -69,16 +70,16 @@ static const char help[] =
     "  -x[c|a|b|n]  specify type of the next infile (C,ASM,BIN,NONE)\n"
     "  -nostdinc    do not use standard system include paths\n"
     "  -nostdlib    do not link with standard crt and libraries\n"
-    "  -Bdir        set tcc's private include/library dir\n"
+    "  -Bdir        set capy's private include/library dir\n"
     "  -MD          generate dependency file for make\n"
     "  -MF file     specify dependency file name\n"
 #if defined(TCC_TARGET_I386) || defined(TCC_TARGET_X86_64)
     "  -m32/64      defer to i386/x86_64 cross compiler\n"
 #endif
     "Tools:\n"
-    "  create library  : tcc -ar [rcsv] lib.a files\n"
+    "  create library  : capy -ar [rcsv] lib.a files\n"
 #ifdef TCC_TARGET_PE
-    "  create def file : tcc -impdef lib.dll [-v] [-o lib.def]\n"
+    "  create def file : capy -impdef lib.dll [-v] [-o lib.def]\n"
 #endif
     ;
 
@@ -133,7 +134,7 @@ static const char help2[] =
     "  -subsystem=[console/windows]  set PE subsystem\n"
     "  -oformat=[pe-* binary]        set executable output format\n"
     "Predefined macros:\n"
-    "  tcc -E -dM - < nul\n"
+    "  capy -E -dM - < nul\n"
 #else
     "  -rpath=                       set dynamic library search path\n"
     "  -enable-new-dtags             set DT_RUNPATH instead of DT_RPATH\n"
@@ -142,13 +143,13 @@ static const char help2[] =
     "  -oformat=[elf32/64-* binary]  set executable output format\n"
     "  -init= -fini= -as-needed -O   (ignored)\n"
     "Predefined macros:\n"
-    "  tcc -E -dM - < /dev/null\n"
+    "  capy -E -dM - < /dev/null\n"
 #endif
     "See also the manual for more details.\n"
     ;
 
 static const char version[] =
-    "tcc version "TCC_VERSION" ("
+    "capy/tcc version "TCC_VERSION" ("
 #ifdef TCC_TARGET_I386
         "i386"
 #elif defined TCC_TARGET_X86_64

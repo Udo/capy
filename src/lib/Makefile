@@ -8,7 +8,7 @@ VPATH = $(TOPSRC)/lib $(TOPSRC)/win32/lib
 T = $(or $(CROSS_TARGET),$(NATIVE_TARGET),unknown)
 X = $(if $(CROSS_TARGET),$(CROSS_TARGET)-)
 
-XTCC ?= $(TOP)/$(X)tcc$(EXESUF)
+XTCC ?= $(TOP)/$(X)capy$(EXESUF)
 XCC = $(XTCC)
 XAR = $(XTCC) -ar
 XFLAGS-unx = -B$(TOPSRC)

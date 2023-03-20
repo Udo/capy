@@ -8,4 +8,4 @@ if [ "$EUID" == 0 ] ; then
 	sudo make install
 fi
 
-mv tcc ../bin/capy
+mv capy ../bin/
