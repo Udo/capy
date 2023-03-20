@@ -116,13 +116,10 @@ int main(int argc, char* argv[])
 				tick += 1.0/60.0;
                 SDL_Event e;
 
-                // Wait indefinitely for the next available event
-                SDL_PollEvent(&e);
-
-                // User requests quit
-                if(e.type == SDL_QUIT)
-                {
-                    quit = true;
+                while (SDL_PollEvent(&e))
+				{
+					if(e.type == SDL_QUIT)
+						quit = true;
                 }
 
                 // Initialize renderer color white for the background
