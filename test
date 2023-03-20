@@ -1,0 +1,6 @@
+#!/bin/bash
+
+SRCFILE="tests/$1.c"
+OUTFILE="bin/test_$1"
+
+./build ; bin/capy "$SRCFILE" ; "$OUTFILE"

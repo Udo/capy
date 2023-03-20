@@ -1,3 +1,0 @@
-#!/bin/bash
-
-./build ; bin/capy tests/sdl2.c ; bin/test_sdl2
