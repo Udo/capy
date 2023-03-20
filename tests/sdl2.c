@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 
 		SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 		SDL_RenderClear(renderer);
-		SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
+		SDL_SetRenderDrawColor(renderer, 0xFF, 0x40+0x40*sin(1.21*tick), 0x80-0x80*sin(2.24*tick), 0xFF);
 
 		squareRect.w = 200 + 100*sin(6.28*tick);
 		squareRect.x = SCREEN_WIDTH / 2 - squareRect.w / 2;
