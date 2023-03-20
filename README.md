@@ -1,90 +1,35 @@
-# capy
-An idea for a C preprocessor
+# Capy, a C-like
+
+## C compatibility
+
+## -> Operator optional
 
 ```C
-// Idea 2: C, but pre-processed
-
-// Multiline strings
-string* s = string_create_from_chars("this
-is just
-a multiline string");
-
-// Interpolated strings / string templates
-string* s = <>
-	<div id="<?= a ?>">
-	<? for(s32 i = 0; i < 10; i++) { ?>
-		<li><?= i ?></li>
-	<? } ?>
-	</div>
-</>;
-
-// Function pointers
-function<void*(u64 size)> fptr;
-// Or, can we maybe do this?
-void*(u64) fptr;
-// anonymous functions
-fptr = void*(u64 a) {
-	print(a);
-};
-// calling function pointers
-fptr(10);
-
-// enums
-enum flag {
-	THING1,
-	THING2,
-	THING3 = 10
-};
-// BUT
-flag f = THING1;
-print(f:opt_name); // calls (struct string*)hashmap_get(TypeInfo[<typeid>].opt_names, u64_hash(f))
-
-// Allocator switching
-#alloc default_allocator alloc, realloc, free
-
-// Function overloading
-void print(string* : a) {
-	printf("String: %s", a->bytes);
-}
-
-void print(s32 : a) {
-	printf("String: %i", a);
-}
-
-// optional struct keyword
-list* my_list = list_create();
-
-// Generic type annotation
-list<string>* my_list = list_create();
-
-// Code gen
-#gen each(<list* l> as <item_name>) <statement code> => {
-	list_item* _tmp = <l>->first;
-	<l:item_type>* <item_name>;
-	while(_tmp)
+	void do_something(MyStruct* m)
 	{
-		<item_name> = _tmp->data;
-		<code>
-		_tmp = _tmp->next;
+		printf("Name: %s\n", m.name);
 	}
-}
-
-each(my_list as item)
-{
-	print(item);
-}
-
-// Polymorphism
-s32 add_stuff(a, b, c) {
-	return a+b+c;
-}
-
-// Reflection
-string* serialize(some_struct s) {
-	each(s::fields as field_name, field_type)
-	{
-		print(s::[field_name]);
-	}
-}
-
 ```
+
+You can use the `.` operator instead of `->` when accessing members of struct pointers.
+
+## `struct` Keyword
+
+The `struct` keyword can be omitted when declaring a struct variable.
+
+## Compiler directives
+
+- `#product`: specifies the executable filename (e.g. `#product "compiled_file_name"`)
+- `#link`: link a library file, equivalent to `-l` command line switch (e.g. `#link "SDL2"`)
+- `#library`: library path, equivalent to `-L` command line switch (e.g. `#library "/usr/lib/x86_64-linux-gnu/pulseaudio/"`)
+
+
+## Minor things
+
+- *Multiline strings*: string literals can contain (unescaped) line breaks
+- *Default executable name*: default binary output name same as first filename argument minus extension
+- *Sane basic type names*: rust-style basic types u8, u16, s16, f16, u32, s32, f32, u64, s64, f64, u128, s128, s128
+
+## Runtime type information
+
+- *`typeid()`* for runtime access to a numeric type ID
