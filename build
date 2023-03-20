@@ -3,5 +3,9 @@
 mkdir -p bin
 cd src
 make
-make install
+
+if [ "$EUID" == 0 ] ; then
+	sudo make install
+fi
+
 mv tcc ../bin/capy

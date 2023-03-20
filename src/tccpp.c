@@ -2099,7 +2099,10 @@ include_done:
     case TOK_PRAGMA:
         pragma_parse(s1);
         break;
+    case TOK_LINK:
     case TOK_PRODUCT:
+    case TOK_LIBRARY:
+		char* lp;
         ch = file->buf_ptr[0];
         skip_spaces();
 		if (ch == '\"') {
@@ -2120,8 +2123,23 @@ include_done:
         } else {
 	        tcc_error("'#product' expects \"FILENAME\" of build product file");
         }
-        s1->build_product_filename = tcc_malloc(strlen(buf)+1);
-        strcpy(s1->build_product_filename, buf);
+		lp = tcc_malloc(strlen(buf)+1);
+		strcpy(lp, buf);
+        if(tok == TOK_PRODUCT)
+			s1->build_product_filename = lp;
+        else if(tok == TOK_LIBRARY)
+			tcc_add_library_path(s1, lp);
+		else if(tok == TOK_LINK)
+		{
+			int filetype;
+			struct filespec *f;
+			filetype = AFF_TYPE_LIB | (s1->filetype & ~AFF_TYPE_MASK);
+			f = tcc_malloc(sizeof *f + strlen(lp));
+			f->type = filetype;
+			strcpy(f->name, lp);
+			dynarray_add(&s1->files, &s1->nb_files, f);
+            s1->nb_libraries++;
+		}
         break;
     case TOK_LINEFEED:
         goto the_end;

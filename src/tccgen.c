@@ -5400,7 +5400,7 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 
 	char tbuf1[256];
 	type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
-    printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
+    //printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
 
     return ret;
 }

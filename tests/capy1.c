@@ -32,28 +32,3 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-/* DONE
-
-*	. and -> can now be used interchangedly
-*	don't need to use the "struct" keyword in variable decl
-*	added typeid() for runtime access to a type ID
-*	multiline strings (was already a thing in TCC!)
-*	default binary output name same as first filename argument minus extension
-*	#product "compiled_file_name"
-*	assignment warnings now actually show the types that are in conflict in verify_assign_cast()
-*	assigning a struct pointer to a basic type without casting is now an error
-*	default to sane basic type names (u8 etc) [sort of, just typedefs for now]
-
-OPEN
-*	change compiler flags with # directives
-*	capy strings
-*	string interpolation
-*	function signature matching
-*	type reflection at runtime
-*	polymorphism
-*	compile-time code execution / metaprogramming
-*	defer things for when symbols go out of scope?
-*	generics?
-*	var keyword for type inference?
-
-*/
