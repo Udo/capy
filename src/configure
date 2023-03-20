@@ -56,8 +56,8 @@ targetos=`uname`
 case $targetos in
   Darwin)
     confvars="$confvars OSX"
-    cc=`which cc`
-    cc=`readlink $cc`
+#    cc=`which cc`
+#    cc=`readlink $cc`
     tcc_usrinclude="`xcrun --show-sdk-path`/usr/include"
     DLLSUF=".dylib"
     ;;
@@ -318,7 +318,8 @@ fi
 
 if test -z "$cross_prefix" ; then
   CONFTEST=./conftest$EXESUF
-  if ! $cc -o $CONFTEST $source_path/conftest.c 2>/dev/null ; then
+  echo "compiler:" $cc -o $CONFTEST $source_path/conftest.c
+  if ! $cc -o $CONFTEST $source_path/conftest.c ; then
     echo "configure: error: '$cc' failed to compile conftest.c."
   else
     cc_name="$($CONFTEST compiler)"

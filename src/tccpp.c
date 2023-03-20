@@ -2102,6 +2102,7 @@ include_done:
     case TOK_LINK:
     case TOK_PRODUCT:
     case TOK_LIBRARY:
+    {
 		char* lp;
         ch = file->buf_ptr[0];
         skip_spaces();
@@ -2141,6 +2142,7 @@ include_done:
             s1->nb_libraries++;
 		}
         break;
+    }
     case TOK_LINEFEED:
         goto the_end;
     default:

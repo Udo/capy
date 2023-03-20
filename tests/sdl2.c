@@ -31,10 +31,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-//#define SDL_DISABLE_IMMINTRIN_H
-//#include <SDL2/SDL.h>
+#define SDL_DISABLE_IMMINTRIN_H
+#include <SDL2/SDL.h>
 #link "SDL2"
-#include "../lib/SDL2/SDL.h"
+//#include "../lib/SDL2_macos/SDL.h"
 // needed for SDL.h to compile on Ubuntu 22.10 for some reason
 #library "/usr/lib/x86_64-linux-gnu/pulseaudio/"
 
