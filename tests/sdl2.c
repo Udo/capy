@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
         printf("Warning: SDL can not disable compositor bypass\n");
 
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-    SDL_Window *window = SDL_CreateWindow("Basic C SDL project",
+    SDL_Window *window = SDL_CreateWindow("SDL",
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SDL_WINDOWPOS_UNDEFINED,
                                           SCREEN_WIDTH, SCREEN_HEIGHT,

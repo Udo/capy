@@ -20,6 +20,7 @@
 
 #define USING_GLOBALS
 #include "tcc.h"
+#include <ctype.h>
 
 /********************************************************/
 /* global variables */
@@ -32,7 +33,7 @@ ST_DATA int ch, tok;
 ST_DATA CValue tokc;
 ST_DATA const int *macro_ptr;
 ST_DATA CString tokcstr; /* current parsed string, if any */
-
+ST_DATA int pp_iota;
 /* display benchmark infos */
 ST_DATA int tok_ident;
 ST_DATA TokenSym **table_ident;
@@ -609,6 +610,15 @@ static int handle_eob(void)
 
     /* only tries to read if really end of buffer */
     if (bf->buf_ptr >= bf->buf_end) {
+		if (bf->next_buf_end)
+		{
+			printf("end of temp buffer\n");
+			bf->buf_ptr = bf->next_buf_ptr;
+			bf->buf_end = bf->next_buf_end;
+			bf->next_buf_ptr = 0;
+			bf->next_buf_end = 0;
+			return bf->buf_ptr[0];
+		}
         if (bf->fd >= 0) {
 #if defined(PARSE_DEBUG)
             len = 1;
@@ -2386,6 +2396,21 @@ static void parse_string(const char *s, int len)
     }
 }
 
+static void parse_enum(char *s)
+{
+	char* p = s;
+	uint8_t buf[1000];
+	int c = 0;
+	while(p && *p != ';')
+	{
+		buf[c] = *p;
+		c++;
+		p++;
+	}
+	buf[c] = 0;
+//	printf("Enum expression: %s\n", buf);
+}
+
 static void parse_istring(const char *s, int len)
 {
 
@@ -2853,7 +2878,8 @@ maybe_newline:
         p1 = p;
         h = TOK_HASH_INIT;
         h = TOK_HASH_FUNC(h, c);
-        while (c = *++p, isidnum_table[c - CH_EOF] & (IS_ID|IS_NUM))
+        while (c = *++p, (isidnum_table[c - CH_EOF] & (IS_ID|IS_NUM))
+			|| (c == ':' && isalnum(*(p+1))) )
             h = TOK_HASH_FUNC(h, c);
         len = p - p1;
         if (c != '\\') {
@@ -3107,15 +3133,25 @@ maybe_newline:
         break;
 
         /* simple tokens */
+    case ':':
     case '(':
     case ')':
     case '[':
+    {
+		char c2;
+		PEEKC(c2, p);
+		p--;
+		if (c2 == '@') {
+			p += 2;
+			tok = TOK_ATTRIBUTE3;
+			break;
+		}
+	}
     case ']':
     case '{':
     case '}':
     case ',':
     case ';':
-    case ':':
     case '?':
     case '~':
     case '@': /* only used in assembler */
@@ -3438,7 +3474,13 @@ static int macro_subst_tok(
 
     /* if symbol is a macro, prepare substitution */
     /* special macros */
-    if (tok == TOK___LINE__ || tok == TOK___COUNTER__) {
+    if (tok == TOK___IOTA__) {
+		t = tok = pp_iota++;
+        snprintf(buf, sizeof(buf), "%d", t);
+        cstrval = buf;
+        t1 = TOK_PPNUM;
+        goto add_cstr1;
+	} else if (tok == TOK___LINE__ || tok == TOK___COUNTER__) {
         t = tok == TOK___LINE__ ? file->line_num : pp_counter++;
         snprintf(buf, sizeof(buf), "%d", t);
         cstrval = buf;
@@ -3701,6 +3743,9 @@ ST_FUNC void next(void)
  redo:
     next_nomacro();
     t = tok;
+    if (t == TOK_ENUM) {
+		parse_enum(file->buf_ptr);
+	}
     if (macro_ptr) {
         if (!TOK_HAS_VALUE(t)) {
             if (t == TOK_NOSUBST || t == TOK_PLCHLDR) {
@@ -3961,6 +4006,7 @@ ST_FUNC void tccpp_new(TCCState *s)
 
     /* we add dummy defines for some special macros to speed up tests
        and to have working defined() */
+    define_push(TOK___IOTA__, MACRO_OBJ, NULL, NULL);
     define_push(TOK___LINE__, MACRO_OBJ, NULL, NULL);
     define_push(TOK___FILE__, MACRO_OBJ, NULL, NULL);
     define_push(TOK___DATE__, MACRO_OBJ, NULL, NULL);

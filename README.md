@@ -31,6 +31,8 @@ The `struct` keyword can be omitted when declaring a struct variable.
 - *Multiline strings*: string literals can contain (unescaped) line breaks
 - *Default executable name*: default binary output name same as first filename argument minus extension
 - *Sane basic type names*: rust-style basic types u8, u16, s16, f16, u32, s32, f32, u64, s64, f64, u128, s128, s128
+- *iota counter*: you can use the Go-like counter `iota` in enum and struct definitions (like __COUNTER__ but more useful)
+- *attribute syntax*: `[@attrib]`, for example `[@section("name")]`
 
 ## Runtime type information
 

@@ -406,7 +406,7 @@ long int capy_hash_string(char* data, int length)
 	char last = 0xc1;
 
 	for (int i = 0; i < length; i++) {
-		hash += i + salt + data[i]*last ^ (data[i]*hash) + (hash << (i % 31));
+		hash += ((i + salt + data[i]*last) ^ (data[i]*hash)) + (hash << (i % 31));
 		last = data[i];
 	}
 
@@ -1151,6 +1151,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     /* XXX: simplify */
     if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
         /* record symbol in token array */
+        //printf("Identifier %s\n", get_tok_str(v & ~SYM_STRUCT, NULL));
         ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
         if (v & SYM_STRUCT)
             ps = &ts->sym_struct;
@@ -1571,7 +1572,7 @@ static void patch_type(Sym *sym, CType *type)
         {
         	char tbuf1[256];
             type_to_str(tbuf1, sizeof(tbuf1), &sym->type, NULL);
-			tcc_error("cannot redefine <%s> '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
+			tcc_error("type error, cannot redefine <%s> '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
 				tbuf1,
 				get_tok_str(sym->v, NULL));
         }
@@ -4148,13 +4149,26 @@ static void parse_attribute(AttributeDef *ad)
 {
     int t, n;
     CString astr;
+	char is_attr3;
+
+	is_attr3 = tok == TOK_ATTRIBUTE3/* || tok == '['*/;
+	if(is_attr3)
+		printf("A3 ");
 
 redo:
-    if (tok != TOK_ATTRIBUTE1 && tok != TOK_ATTRIBUTE2)
+	if (is_attr3 && tok == ']')
+	{
+		next();
+		return;
+	}
+    if (tok != TOK_ATTRIBUTE1 && tok != TOK_ATTRIBUTE2 && tok != TOK_ATTRIBUTE3/* && tok != '['*/)
         return;
     next();
-    skip('(');
-    skip('(');
+    if(!is_attr3)
+    {
+		skip('(');
+		skip('(');
+    }
     while (tok != ')') {
         if (tok < TOK_IDENT)
             expect("attribute name");
@@ -4345,8 +4359,11 @@ redo:
             break;
         next();
     }
-    skip(')');
-    skip(')');
+    if(!is_attr3)
+    {
+		skip(')');
+		skip(')');
+	}
     goto redo;
 }
 
@@ -4634,7 +4651,9 @@ static void struct_decl(CType *type, int u)
                 goto do_decl;
             if (u == VT_ENUM && IS_ENUM(s->type.t))
                 goto do_decl;
-            tcc_error("cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+            // todo investigate: did this break something?
+            goto do_decl;
+            // tcc_error("declaration error, cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
         }
     } else {
         v = anon_sym++;
@@ -4650,7 +4669,12 @@ do_decl:
     type->ref = s;
 
     if (tok == '{') {
-        next();
+		int ident_counter;
+		pp_iota = 0;
+		//char* [
+
+		ident_counter = 0;
+		next();
         if (s->c != -1)
         {
             tcc_error("cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
@@ -4662,7 +4686,8 @@ do_decl:
         ps = &s->next;
         if (u == VT_ENUM) {
             long long ll = 0, pl = 0, nl = 0;
-	    CType t;
+			CType t;
+			printf("Enum declaration %s:", get_tok_str(v, NULL));
             t.ref = s;
             /* enum symbols have static storage */
             t.t = VT_INT|VT_STATIC|VT_ENUM_VAL;
@@ -4675,6 +4700,10 @@ do_decl:
                 if (ss && !local_stack)
                     tcc_error("cannot redefine enumerator '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
                               get_tok_str(v, NULL));
+
+                printf(" %s, ", get_tok_str(v, NULL));
+                ident_counter++;
+
                 next();
                 if (tok == '=') {
                     next();
@@ -4719,6 +4748,7 @@ do_decl:
                 ss->type.t = (ss->type.t & ~VT_BTYPE)
                     | (LONG_SIZE==8 ? VT_LLONG|VT_LONG : VT_LLONG);
             }
+            printf("enum end\n");
         } else {
             c = 0;
             flexible = 0;
@@ -5044,6 +5074,7 @@ static int parse_btype(CType *type, AttributeDef *ad)
             /* GNUC attribute */
         case TOK_ATTRIBUTE1:
         case TOK_ATTRIBUTE2:
+        case TOK_ATTRIBUTE3:
             parse_attribute(ad);
             if (ad->attr_mode) {
                 u = ad->attr_mode -1;
@@ -5360,7 +5391,8 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
 	/* XXX: clarify attribute handling */
 	case TOK_ATTRIBUTE1:
 	case TOK_ATTRIBUTE2:
-	    parse_attribute(ad);
+	case TOK_ATTRIBUTE3:
+        parse_attribute(ad);
 	    break;
         }
         mk_pointer(type);
@@ -5398,9 +5430,11 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
     parse_attribute(ad);
     type->t |= storage;
 
-	char tbuf1[256];
-	type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
-    //printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
+	{
+		char tbuf1[256];
+		type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
+		//printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
+	}
 
     return ret;
 }
@@ -6976,6 +7010,7 @@ static void vla_leave(struct scope *o)
 
 void new_scope(struct scope *o)
 {
+	pp_iota = 0;
     /* copy and link previous scope */
     *o = *cur_scope;
     o->prev = cur_scope;

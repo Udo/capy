@@ -1,0 +1,5 @@
+#!/bin/bash
+
+SRCFILE="tests/$1.c"
+
+bin/capy -b -run "$SRCFILE"

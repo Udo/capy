@@ -617,6 +617,8 @@ typedef struct DLLReference {
 typedef struct BufferedFile {
     uint8_t *buf_ptr;
     uint8_t *buf_end;
+    uint8_t *next_buf_ptr;
+    uint8_t *next_buf_end;
     int fd;
     struct BufferedFile *prev;
     int line_num;    /* current line number - here to simplify code */
@@ -650,6 +652,7 @@ typedef struct TokenString {
 
 /* GNUC attribute definition */
 typedef struct AttributeDef {
+	// todo: custom attribute support
     struct SymAttr a;
     struct FuncAttr f;
     struct Section *section;
@@ -1332,6 +1335,7 @@ ST_DATA const int *macro_ptr;
 ST_DATA int parse_flags;
 ST_DATA int tok_flags;
 ST_DATA CString tokcstr; /* current parsed string, if any */
+ST_DATA int pp_iota;
 
 /* display benchmark infos */
 ST_DATA int tok_ident;

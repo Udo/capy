@@ -8,7 +8,13 @@ struct MyTest {
 	f32 f;
 };
 
+enum week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
+enum week2 {Mon2 = iota, Tue2 = iota, Wed2 = iota, Thur2, Fri2, Sat2, Sun2};
+u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+
 int main(int argc, char** argv) {
+
+	"[@Prefix]";
 
 	MyTest* m =
 		malloc(sizeof(MyTest));
@@ -28,6 +34,9 @@ int main(int argc, char** argv) {
 
 	printf("here are some strings %s\n",
 		mf);
+
+	week day = Wed2;
+    printf("%d = %s %i %i\n", day, week:names[day], __COUNTER__, __COUNTER__);
 
     return 0;
 }
