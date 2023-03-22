@@ -22,6 +22,7 @@ libtcc*.def
 
 bin/
 .fuse*
+.pc/
 
 config*.h
 config*.mak

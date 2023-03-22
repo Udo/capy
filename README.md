@@ -25,6 +25,9 @@ The `struct` keyword can be omitted when declaring a struct variable.
 - `#link`: link a library file, equivalent to `-l` command line switch (e.g. `#link "SDL2"`)
 - `#library`: library path, equivalent to `-L` command line switch (e.g. `#library "/usr/lib/x86_64-linux-gnu/pulseaudio/"`)
 
+## enums
+
+- runtime information `[@ext]`: enums tagged with @ext generate arrays called `MYENUM:names[]` and `MYENUM:values[]` (where MYENUM is the name of the enum), and this array contains the names and values of all enum constants as a string available at runtime.
 
 ## Minor things
 

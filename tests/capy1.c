@@ -8,9 +8,8 @@ struct MyTest {
 	f32 f;
 };
 
-enum week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
-enum week2 {Mon2 = iota, Tue2 = iota, Wed2 = iota, Thur2, Fri2, Sat2, Sun2};
-u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
+//u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 
 int main(int argc, char** argv) {
 
@@ -32,11 +31,11 @@ int main(int argc, char** argv) {
 	printf("scope ID: %i\n",
 		scopeid(0));
 
-	printf("here are some strings %s\n",
-		mf);
+	printf("ext: %p\n",
+		(s32)hash_into_u64("ext", 3));
 
-	week day = Wed2;
-    printf("%d = %s %i %i\n", day, week:names[day], __COUNTER__, __COUNTER__);
+	week day = Wed;
+    printf("Enum test: %d = %s = %i\n", day, week:names[day], week:values[day]);
 
     return 0;
 }

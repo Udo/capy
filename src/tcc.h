@@ -45,6 +45,8 @@
 #define ANSI_FG_CYAN	"\e[0;36m"
 #define ANSI_FG_WHITE	"\e[0;37m"
 
+#define TAG_HASH_EXT	0x7c83e37e
+
 #ifndef _WIN32
 # define WIN32_LEAN_AND_MEAN 1
 # include <unistd.h>
@@ -494,15 +496,16 @@ typedef struct SValue {
 /* symbol attributes */
 struct SymAttr {
     unsigned short
-    aligned     : 5, /* alignment as log2+1 (0 == unspecified) */
-    packed      : 1,
-    weak        : 1,
-    visibility  : 2,
-    dllexport   : 1,
-    nodecorate  : 1,
-    dllimport   : 1,
-    addrtaken   : 1,
-    xxxx        : 3; /* not used */
+		aligned     : 5, /* alignment as log2+1 (0 == unspecified) */
+		packed      : 1,
+		weak        : 1,
+		visibility  : 2,
+		dllexport   : 1,
+		nodecorate  : 1,
+		dllimport   : 1,
+		addrtaken   : 1,
+		xxxx        : 3; /* not used */
+    int tag;
 };
 
 /* function attributes or temporary attributes for parsing */

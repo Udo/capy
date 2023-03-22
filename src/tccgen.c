@@ -20,6 +20,7 @@
 
 #define USING_GLOBALS
 #include "tcc.h"
+#include "capy.h"
 
 /********************************************************/
 /* global variables */
@@ -98,6 +99,7 @@ static void type_to_str(char *buf, int buf_size,
 #endif
 
 int scope_counter = 0;
+char* test_str1 = "        ";
 
 ST_DATA struct switch_t {
     struct case_t {
@@ -399,6 +401,7 @@ ST_FUNC void check_vstack(void)
                   (int)(vtop - vstack + 1));
 }
 
+/*
 long int capy_hash_string(char* data, int length)
 {
 	long int hash = 0xfb54e02cf3c0a69;
@@ -412,7 +415,7 @@ long int capy_hash_string(char* data, int length)
 
 	return hash;
 }
-
+*/
 /* ------------------------------------------------------------------------- */
 /* vstack debugging aid */
 
@@ -427,6 +430,17 @@ void pv (const char *lbl, int a, int b)
     }
 }
 #endif
+
+static void use_temp_buffer(char* buf_start, char* buf_end)
+{
+	buf_end[0] = CH_EOB;
+	file->next_buf_ptr = file->buf_ptr;
+	file->next_buf_end = file->buf_end;
+	file->buf_ptr = buf_start;
+	file->buf_end = buf_end;
+	//printf("temp buffer start at %p\n", file->buf_ptr);
+}
+
 
 /* ------------------------------------------------------------------------- */
 /* start of translation unit info */
@@ -3011,7 +3025,7 @@ int type_to_id(CType* st)
 {
     char buf1[256];
     type_to_str(buf1, sizeof(buf1), st, NULL);
-    return(capy_hash_string(buf1, strlen(buf1)));
+    return(hash_into_u64(buf1, strlen(buf1)));
 }
 
 static void type_incompatibility_error(CType* st, CType* dt, const char* fmt)
@@ -4145,6 +4159,7 @@ ST_FUNC int exact_log2p1(int i)
 }
 
 /* Parse __attribute__((...)) GNUC extension. */
+/* [@tag] */
 static void parse_attribute(AttributeDef *ad)
 {
     int t, n;
@@ -4152,8 +4167,6 @@ static void parse_attribute(AttributeDef *ad)
 	char is_attr3;
 
 	is_attr3 = tok == TOK_ATTRIBUTE3/* || tok == '['*/;
-	if(is_attr3)
-		printf("A3 ");
 
 redo:
 	if (is_attr3 && tok == ']')
@@ -4340,20 +4353,26 @@ redo:
             ad->a.dllimport = 1;
             break;
         default:
-            if (tcc_state->warn_unsupported)
-                tcc_warning("'" ANSI_FG_CYAN "%s" ANSI_RESET "' attribute ignored", get_tok_str(t, NULL));
-            /* skip parameters */
-            if (tok == '(') {
-                int parenthesis = 0;
-                do {
-                    if (tok == '(')
-                        parenthesis++;
-                    else if (tok == ')')
-                        parenthesis--;
-                    next();
-                } while (parenthesis && tok != -1);
-            }
-            break;
+			{
+				const char* atr_name = get_tok_str(t, NULL);
+				if (tcc_state->warn_unsupported)
+					tcc_warning("'" ANSI_FG_CYAN "%s" ANSI_RESET "' attribute ignored", atr_name);
+				/* skip parameters */
+				if (tok == '(') {
+					int parenthesis = 0;
+					do {
+						if (tok == '(')
+							parenthesis++;
+						else if (tok == ')')
+							parenthesis--;
+						next();
+					} while (parenthesis && tok != -1);
+				} else {
+					ad->a.tag = (s32)hash_into_u64((char*)atr_name, strlen(atr_name));
+					//printf("tag [@%s] : %p\n", atr_name, ad->a.tag);
+				}
+				break;
+			}
         }
         if (tok != ',')
             break;
@@ -4630,236 +4649,262 @@ static void struct_layout(CType *type, AttributeDef *ad)
 /* enum/struct/union declaration. u is VT_ENUM/VT_STRUCT/VT_UNION */
 static void struct_decl(CType *type, int u)
 {
-    int v, c, size, align, flexible;
-    int bit_size, bsize, bt;
-    Sym *s, *ss, **ps;
-    AttributeDef ad, ad1;
-    CType type1, btype;
+	int v, c, size, align, flexible;
+	int bit_size, bsize, bt;
+	Sym *s, *ss, **ps;
+	AttributeDef ad, ad1;
+	CType type1, btype;
+	int extended_enum;
 
-    memset(&ad, 0, sizeof ad);
-    //next();
-    parse_attribute(&ad);
-    if (tok != '{') {
-        v = tok;
-        next();
-        /* struct already defined ? return it */
-        if (v < TOK_IDENT)
-            expect("struct/union/enum name");
-        s = struct_find(v);
-        if (s && (s->sym_scope == local_scope || tok != '{')) {
-            if (u == s->type.t)
-                goto do_decl;
-            if (u == VT_ENUM && IS_ENUM(s->type.t))
-                goto do_decl;
-            // todo investigate: did this break something?
-            goto do_decl;
-            // tcc_error("declaration error, cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
-        }
-    } else {
-        v = anon_sym++;
-    }
-    /* Record the original enum/struct/union token.  */
-    type1.t = u == VT_ENUM ? u | VT_INT | VT_UNSIGNED : u;
-    type1.ref = NULL;
-    /* we put an undefined size for struct/union */
-    s = sym_push(v | SYM_STRUCT, &type1, 0, -1);
-    s->r = 0; /* default alignment is zero as gcc */
-do_decl:
-    type->t = s->type.t;
-    type->ref = s;
+	memset(&ad, 0, sizeof ad);
+	// next();
+	parse_attribute(&ad);
 
-    if (tok == '{') {
+	extended_enum = (ad.a.tag == TAG_HASH_EXT);
+
+	if (tok != '{') {
+		v = tok;
+		next();
+		/* struct already defined ? return it */
+		if (v < TOK_IDENT)
+			expect("struct/union/enum name");
+
+		s = struct_find(v);
+		if (s && (s->sym_scope == local_scope || tok != '{')) {
+			if (u == s->type.t)
+				goto do_decl;
+			if (u == VT_ENUM && IS_ENUM(s->type.t))
+				goto do_decl;
+			// todo investigate: did this break something?
+			goto do_decl;
+			// tcc_error("declaration error, cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+		}
+	} else {
+		if (extended_enum)
+			tcc_error("extended types cannot be anonymous: '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+		v = anon_sym++;
+	}
+	/* Record the original enum/struct/union token.	*/
+	type1.t = u == VT_ENUM ? u | VT_INT | VT_UNSIGNED : u;
+	type1.ref = NULL;
+	/* we put an undefined size for struct/union */
+	s = sym_push(v | SYM_STRUCT, &type1, 0, -1);
+	s->r = 0; /* default alignment is zero as gcc */
+	do_decl : type->t = s->type.t;
+	type->ref = s;
+
+	if (tok == '{') {
 		int ident_counter;
+		const char *type_name;
+
 		pp_iota = 0;
-		//char* [
+		// char* [
 
 		ident_counter = 0;
 		next();
-        if (s->c != -1)
-        {
-            tcc_error("cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-				get_tok_str(v, NULL));
-        }
-        s->c = -2;
-        /* cannot be empty */
-        /* non empty enums are not allowed */
-        ps = &s->next;
-        if (u == VT_ENUM) {
-            long long ll = 0, pl = 0, nl = 0;
-			CType t;
-			printf("Enum declaration %s:", get_tok_str(v, NULL));
-            t.ref = s;
-            /* enum symbols have static storage */
-            t.t = VT_INT|VT_STATIC|VT_ENUM_VAL;
-            for(;;) {
-                v = tok;
-                if (v < TOK_UIDENT)
-                    tcc_error("identifier expected but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(tok, 0));
-
-                ss = sym_find(v);
-                if (ss && !local_stack)
-                    tcc_error("cannot redefine enumerator '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-                              get_tok_str(v, NULL));
-
-                printf(" %s, ", get_tok_str(v, NULL));
-                ident_counter++;
-
-                next();
-                if (tok == '=') {
-                    next();
-		    ll = expr_const64();
-                }
-                ss = sym_push(v, &t, VT_CONST, 0);
-                ss->enum_val = ll;
-                *ps = ss, ps = &ss->next;
-                if (ll < nl)
-                    nl = ll;
-                if (ll > pl)
-                    pl = ll;
-                if (tok != ',')
-                    break;
-                next();
-                ll++;
-                /* NOTE: we accept a trailing comma */
-                if (tok == '}')
-                    break;
-            }
-            skip('}');
-            /* set integral type of the enum */
-            t.t = VT_INT;
-            if (nl >= 0) {
-                if (pl != (unsigned)pl)
-                    t.t = (LONG_SIZE==8 ? VT_LLONG|VT_LONG : VT_LLONG);
-                t.t |= VT_UNSIGNED;
-            } else if (pl != (int)pl || nl != (int)nl)
-                t.t = (LONG_SIZE==8 ? VT_LLONG|VT_LONG : VT_LLONG);
-            s->type.t = type->t = t.t | VT_ENUM;
-            s->c = 0;
-            /* set type for enum members */
-            for (ss = s->next; ss; ss = ss->next) {
-                ll = ss->enum_val;
-                if (ll == (int)ll) /* default is int if it fits */
-                    continue;
-                if (t.t & VT_UNSIGNED) {
-                    ss->type.t |= VT_UNSIGNED;
-                    if (ll == (unsigned)ll)
-                        continue;
-                }
-                ss->type.t = (ss->type.t & ~VT_BTYPE)
-                    | (LONG_SIZE==8 ? VT_LLONG|VT_LONG : VT_LLONG);
-            }
-            printf("enum end\n");
-        } else {
-            c = 0;
-            flexible = 0;
-            while (tok != '}') {
-                if (!parse_btype(&btype, &ad1)) {
-		    skip(';');
-		    continue;
+		if (s->c != -1) {
+			tcc_error("cannot redefine '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
 		}
-                while (1) {
-		    if (flexible)
-		        tcc_error("flexible array member '" ANSI_FG_CYAN "%s" ANSI_RESET "' must be at the end of the struct",
-                              get_tok_str(v, NULL));
-                    bit_size = -1;
-                    v = 0;
-                    type1 = btype;
-                    if (tok != ':') {
-			if (tok != ';')
-                            type_decl(&type1, &ad1, &v, TYPE_DIRECT);
-                        if (v == 0) {
-                    	    if ((type1.t & VT_BTYPE) != VT_STRUCT)
-                        	expect("identifier");
-                    	    else {
-				int v = btype.ref->v;
-				if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
-				    if (tcc_state->ms_extensions == 0)
-                        		expect("identifier");
+		s->c = -2;
+		/* cannot be empty */
+		/* non empty enums are not allowed */
+		ps = &s->next;
+		if (u == VT_ENUM) {
+			struct string* gen_code_names;
+			struct string* gen_code_values;
+			long long ll = 0, pl = 0, nl = 0;
+			CType t;
+
+			gen_code_names = string_create_with_chars("u8* ");
+			gen_code_values = string_create_with_chars("s32 "); // todo: we should do something about the actual storage type of enums, right?
+			if (extended_enum) {
+				type_name = get_tok_str(v, NULL);
+				string_append_chars(gen_code_names, (char*)type_name);
+				string_append_chars(gen_code_names, ":names[] = { ");
+				string_append_chars(gen_code_values, (char*)type_name);
+				string_append_chars(gen_code_values, ":values[] = { ");
+			}
+			t.ref = s;
+			/* enum symbols have static storage */
+			t.t = VT_INT | VT_STATIC | VT_ENUM_VAL;
+			for (;;) {
+				v = tok;
+				if (v < TOK_UIDENT)
+					tcc_error("identifier expected but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(tok, 0));
+
+				if (extended_enum) {
+					string_append_chars(gen_code_names, "\"");
+					string_append_chars(gen_code_names, (char*)get_tok_str(v, NULL));
+					string_append_chars(gen_code_names, "\", ");
 				}
-                    	    }
-                        }
-                        if (type_size(&type1, &align) < 0) {
-			    if ((u == VT_STRUCT) && (type1.t & VT_ARRAY) && c)
-			        flexible = 1;
-			    else
-			        tcc_error("field '" ANSI_FG_CYAN "%s" ANSI_RESET "' has an incomplete type",
-                                      get_tok_str(v, NULL));
-                        }
-                        if ((type1.t & VT_BTYPE) == VT_FUNC ||
-			    (type1.t & VT_BTYPE) == VT_VOID ||
-                            (type1.t & VT_STORAGE))
-                            tcc_error("invalid type for '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-                                  get_tok_str(v, NULL));
-                    }
-                    if (tok == ':') {
-                        next();
-                        bit_size = expr_const();
-                        /* XXX: handle v = 0 case for messages */
-                        if (bit_size < 0)
-                            tcc_error("negative width in bit-field '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-                                  get_tok_str(v, NULL));
-                        if (v && bit_size == 0)
-                            tcc_error("zero width for bit-field '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-                                  get_tok_str(v, NULL));
-			parse_attribute(&ad1);
-                    }
-                    size = type_size(&type1, &align);
-                    if (bit_size >= 0) {
-                        bt = type1.t & VT_BTYPE;
-                        if (bt != VT_INT &&
-                            bt != VT_BYTE &&
-                            bt != VT_SHORT &&
-                            bt != VT_BOOL &&
-                            bt != VT_LLONG)
-                            tcc_error("bitfields must have scalar type");
-                        bsize = size * 8;
-                        if (bit_size > bsize) {
-                            tcc_error("width of '" ANSI_FG_CYAN "%s" ANSI_RESET "' exceeds its type",
-                                  get_tok_str(v, NULL));
-                        } else if (bit_size == bsize
-                                    && !ad.a.packed && !ad1.a.packed) {
-                            /* no need for bit fields */
-                            ;
-                        } else if (bit_size == 64) {
-                            tcc_error("field width 64 not implemented");
-                        } else {
-                            type1.t = (type1.t & ~VT_STRUCT_MASK)
-                                | VT_BITFIELD
-                                | (bit_size << (VT_STRUCT_SHIFT + 6));
-                        }
-                    }
-                    if (v != 0 || (type1.t & VT_BTYPE) == VT_STRUCT) {
-                        /* Remember we've seen a real field to check
-			   for placement of flexible array member. */
-			c = 1;
-                    }
-		    /* If member is a struct or bit-field, enforce
-		       placing into the struct (as anonymous).  */
-                    if (v == 0 &&
-			((type1.t & VT_BTYPE) == VT_STRUCT ||
-			 bit_size >= 0)) {
-		        v = anon_sym++;
-		    }
-                    if (v) {
-                        ss = sym_push(v | SYM_FIELD, &type1, 0, 0);
-                        ss->a = ad1.a;
-                        *ps = ss;
-                        ps = &ss->next;
-                    }
-                    if (tok == ';' || tok == TOK_EOF)
-                        break;
-                    skip(',');
-                }
-                skip(';');
-            }
-            skip('}');
-	    parse_attribute(&ad);
-            if (ad.cleanup_func) {
-                tcc_warning("attribute '__cleanup__' ignored on type");
-            }
-            struct_layout(type, &ad);
-        }
-    }
+
+				ss = sym_find(v);
+				if (ss && !local_stack)
+					tcc_error("cannot redefine enumerator '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+
+				ident_counter++;
+
+				next();
+				if (tok == '=') {
+					next();
+					ll = expr_const64();
+				}
+				ss = sym_push(v, &t, VT_CONST, 0);
+				ss->enum_val = ll;
+
+				if(extended_enum)
+				{
+					string_append_s32(gen_code_values, ss->enum_val);
+					string_append_chars(gen_code_values, ", ");
+				}
+
+				*ps = ss, ps = &ss->next;
+				if (ll < nl)
+					nl = ll;
+				if (ll > pl)
+					pl = ll;
+				if (tok != ',')
+					break;
+				next();
+				ll++;
+				/* NOTE: we accept a trailing comma */
+				if (tok == '}')
+					break;
+			}
+			skip('}');
+			/* set integral type of the enum */
+			t.t = VT_INT;
+			if (nl >= 0) {
+				if (pl != (unsigned)pl)
+					t.t = (LONG_SIZE == 8 ? VT_LLONG | VT_LONG : VT_LLONG);
+				t.t |= VT_UNSIGNED;
+			} else if (pl != (int)pl || nl != (int)nl)
+				t.t = (LONG_SIZE == 8 ? VT_LLONG | VT_LONG : VT_LLONG);
+			s->type.t = type->t = t.t | VT_ENUM;
+			s->c = 0;
+			/* set type for enum members */
+			for (ss = s->next; ss; ss = ss->next) {
+				ll = ss->enum_val;
+				if (ll == (int)ll) /* default is int if it fits */
+					continue;
+				if (t.t & VT_UNSIGNED) {
+					ss->type.t |= VT_UNSIGNED;
+					if (ll == (unsigned)ll)
+						continue;
+				}
+				ss->type.t = (ss->type.t & ~VT_BTYPE) | (LONG_SIZE == 8 ? VT_LLONG | VT_LONG : VT_LLONG);
+			}
+			if (extended_enum)
+			{
+				struct string* gen_code;
+				gen_code = string_create();
+
+				string_append_chars(gen_code_names, " }; ");
+				string_append(gen_code, gen_code_names);
+				string_append_chars(gen_code_values, " }; ");
+				string_append(gen_code, gen_code_values);
+
+				use_temp_buffer(gen_code->bytes, gen_code->bytes + gen_code->length);
+				printf("ENUM PARSED: %s \n", gen_code->bytes);
+				string_free(gen_code_names);
+				// todo: we're still leaking gen_code memory
+				tok = ';';
+			}
+		} else {
+			c = 0;
+			flexible = 0;
+			while (tok != '}') {
+				if (!parse_btype(&btype, &ad1)) {
+					skip(';');
+					continue;
+				}
+				while (1) {
+					if (flexible)
+						tcc_error("flexible array member '" ANSI_FG_CYAN "%s" ANSI_RESET "' must be at the end of the struct",
+											get_tok_str(v, NULL));
+					bit_size = -1;
+					v = 0;
+					type1 = btype;
+					if (tok != ':') {
+						if (tok != ';')
+							type_decl(&type1, &ad1, &v, TYPE_DIRECT);
+						if (v == 0) {
+							if ((type1.t & VT_BTYPE) != VT_STRUCT)
+								expect("identifier");
+							else {
+								int v = btype.ref->v;
+								if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
+									if (tcc_state->ms_extensions == 0)
+										expect("identifier");
+								}
+							}
+						}
+						if (type_size(&type1, &align) < 0) {
+							if ((u == VT_STRUCT) && (type1.t & VT_ARRAY) && c)
+								flexible = 1;
+							else
+								tcc_error("field '" ANSI_FG_CYAN "%s" ANSI_RESET "' has an incomplete type", get_tok_str(v, NULL));
+						}
+						if ((type1.t & VT_BTYPE) == VT_FUNC || (type1.t & VT_BTYPE) == VT_VOID || (type1.t & VT_STORAGE))
+							tcc_error("invalid type for '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+					}
+					if (tok == ':') {
+						next();
+						bit_size = expr_const();
+						/* XXX: handle v = 0 case for messages */
+						if (bit_size < 0)
+							tcc_error("negative width in bit-field '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+						if (v && bit_size == 0)
+							tcc_error("zero width for bit-field '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+						parse_attribute(&ad1);
+					}
+					size = type_size(&type1, &align);
+					if (bit_size >= 0) {
+						bt = type1.t & VT_BTYPE;
+						if (bt != VT_INT && bt != VT_BYTE && bt != VT_SHORT && bt != VT_BOOL && bt != VT_LLONG)
+							tcc_error("bitfields must have scalar type");
+						bsize = size * 8;
+						if (bit_size > bsize) {
+							tcc_error("width of '" ANSI_FG_CYAN "%s" ANSI_RESET "' exceeds its type", get_tok_str(v, NULL));
+						} else if (bit_size == bsize && !ad.a.packed && !ad1.a.packed) {
+							/* no need for bit fields */
+							;
+						} else if (bit_size == 64) {
+							tcc_error("field width 64 not implemented");
+						} else {
+							type1.t = (type1.t & ~VT_STRUCT_MASK) | VT_BITFIELD | (bit_size << (VT_STRUCT_SHIFT + 6));
+						}
+					}
+					if (v != 0 || (type1.t & VT_BTYPE) == VT_STRUCT) {
+						/* Remember we've seen a real field to check
+												 for placement of flexible array member. */
+						c = 1;
+					}
+					/* If member is a struct or bit-field, enforce
+						 placing into the struct (as anonymous).	*/
+					if (v == 0 && ((type1.t & VT_BTYPE) == VT_STRUCT || bit_size >= 0)) {
+						v = anon_sym++;
+					}
+					if (v) {
+						ss = sym_push(v | SYM_FIELD, &type1, 0, 0);
+						ss->a = ad1.a;
+						*ps = ss;
+						ps = &ss->next;
+					}
+					if (tok == ';' || tok == TOK_EOF)
+						break;
+					skip(',');
+				}
+				skip(';');
+			}
+			skip('}');
+			parse_attribute(&ad);
+			if (ad.cleanup_func) {
+				tcc_warning("attribute '__cleanup__' ignored on type");
+			}
+			struct_layout(type, &ad);
+		}
+	}
 }
 
 static void sym_to_attr(AttributeDef *ad, Sym *s)

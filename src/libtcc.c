@@ -910,7 +910,7 @@ tcc_define_symbol(s, "s64", "long");
 tcc_define_symbol(s, "f64", "double");
 tcc_define_symbol(s, "u128", "unsigned long long int ");
 tcc_define_symbol(s, "s128", "long long int ");
-tcc_define_symbol(s, "f129", "long double");
+tcc_define_symbol(s, "f128", "long double");
 //tcc_define_symbol(s, "PI", "3.141592653589793238462643383279");
 
     /* TinyCC & gcc defines */

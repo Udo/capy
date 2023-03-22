@@ -540,13 +540,13 @@ ST_FUNC const char *get_tok_str(int v, CValue *cv)
         break;
 
     case TOK_CFLOAT:
-        cstr_cat(&cstr_buf, "<float>", 0);
+        cstr_cat(&cstr_buf, "<f32>", 0);
         break;
     case TOK_CDOUBLE:
-	cstr_cat(&cstr_buf, "<double>", 0);
+	cstr_cat(&cstr_buf, "<f64>", 0);
 	break;
     case TOK_CLDOUBLE:
-	cstr_cat(&cstr_buf, "<long double>", 0);
+	cstr_cat(&cstr_buf, "<f128>", 0);
 	break;
     case TOK_LINENUM:
 	cstr_cat(&cstr_buf, "<linenumber>", 0);
@@ -591,7 +591,7 @@ ST_FUNC const char *get_tok_str(int v, CValue *cv)
             return table_ident[v - TOK_IDENT]->str;
         } else if (v >= SYM_FIRST_ANOM) {
             /* special name for anonymous symbol */
-            sprintf(p, "L.%u", v - SYM_FIRST_ANOM);
+            sprintf(p, "ANON_%u", v - SYM_FIRST_ANOM);
         } else {
             /* should never happen */
             return NULL;
@@ -612,7 +612,7 @@ static int handle_eob(void)
     if (bf->buf_ptr >= bf->buf_end) {
 		if (bf->next_buf_end)
 		{
-			printf("end of temp buffer\n");
+			//printf("end of temp buffer\n");
 			bf->buf_ptr = bf->next_buf_ptr;
 			bf->buf_end = bf->next_buf_end;
 			bf->next_buf_ptr = 0;
@@ -2396,21 +2396,6 @@ static void parse_string(const char *s, int len)
     }
 }
 
-static void parse_enum(char *s)
-{
-	char* p = s;
-	uint8_t buf[1000];
-	int c = 0;
-	while(p && *p != ';')
-	{
-		buf[c] = *p;
-		c++;
-		p++;
-	}
-	buf[c] = 0;
-//	printf("Enum expression: %s\n", buf);
-}
-
 static void parse_istring(const char *s, int len)
 {
 
@@ -3164,7 +3149,7 @@ maybe_newline:
 	    goto parse_ident_fast;
         if (parse_flags & PARSE_FLAG_ASM_FILE)
             goto parse_simple;
-        tcc_error("unrecognized character \\x%02x", c);
+        tcc_error("unrecognized character \\x%02x at %p", c, p);
         break;
     }
     tok_flags = 0;
@@ -3743,9 +3728,6 @@ ST_FUNC void next(void)
  redo:
     next_nomacro();
     t = tok;
-    if (t == TOK_ENUM) {
-		parse_enum(file->buf_ptr);
-	}
     if (macro_ptr) {
         if (!TOK_HAS_VALUE(t)) {
             if (t == TOK_NOSUBST || t == TOK_PLCHLDR) {
