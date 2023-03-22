@@ -12,6 +12,10 @@
 #define mem_realloc		tcc_realloc
 #define string_initial_capacity 16
 
+#ifndef countof
+#define countof(array) (sizeof(array) / sizeof(array[0]))
+#endif
+
 typedef unsigned char 	u8;
 typedef char	 		s8;
 typedef char	 		b8;

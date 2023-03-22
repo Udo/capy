@@ -22,6 +22,9 @@ typedef double		 	xx_f64;
 #define mem_realloc(ptr, sz)	realloc(ptr, sz)
 #define string_initial_capacity 16
 
+#define countof(array) (sizeof(array) / sizeof(array[0]))
+
+
 void panic(char* msg)
 {
 	printf("panic: %s\n", msg);

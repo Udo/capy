@@ -18,6 +18,7 @@ You can use the `.` operator instead of `->` when accessing members of struct po
 ## structs
 
 - The `struct` keyword can be omitted when declaring a struct variable.
+- runtime information: structs tagged with `[@ext]` generate arrays called `MYSTRUCT:name[]` (where MYSTRUCT is the name of the struct), and these contain the names of all members as a string available at runtime.
 
 ## Compiler directives
 
@@ -27,7 +28,7 @@ You can use the `.` operator instead of `->` when accessing members of struct po
 
 ## enums
 
-- runtime information: enums tagged with `[@ext]` generate arrays called `MYENUM:names[]` and `MYENUM:values[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
+- runtime information: enums tagged with `[@ext]` generate arrays called `MYENUM:name[]` and `MYENUM:value[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
 - *iota counter*: you can use the Go-like counter `iota` in enum and struct definitions (like `__COUNTER__` but more useful). The counter is reset to 0 when a new scope or enum definition begins.
 
 ## Minor things
@@ -36,6 +37,7 @@ You can use the `.` operator instead of `->` when accessing members of struct po
 - *Default executable name*: default binary output name same as first filename argument minus extension
 - *Sane basic type names*: rust-style basic types u8, u16, s16, f16, u32, s32, f32, u64, s64, f64, u128, s128, s128
 - *attribute syntax*: `[@attrib]`, for example `[@section("name")]`
+- `countof(ARRAY)` returns the number of elements in the array
 
 ## Runtime type information
 

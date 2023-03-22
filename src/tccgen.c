@@ -4646,6 +4646,9 @@ static void struct_layout(CType *type, AttributeDef *ad)
     }
 }
 
+struct string* struct_decl_codegen = 0;
+int struct_decl_level = 0;
+
 /* enum/struct/union declaration. u is VT_ENUM/VT_STRUCT/VT_UNION */
 static void struct_decl(CType *type, int u)
 {
@@ -4696,8 +4699,10 @@ static void struct_decl(CType *type, int u)
 	if (tok == '{') {
 		int ident_counter;
 		const char *type_name;
+		type_name = get_tok_str(v, NULL);
 
 		pp_iota = 0;
+		struct_decl_level++;
 		// char* [
 
 		ident_counter = 0;
@@ -4718,11 +4723,10 @@ static void struct_decl(CType *type, int u)
 			gen_code_names = string_create_with_chars("u8* ");
 			gen_code_values = string_create_with_chars("s32 "); // todo: we should do something about the actual storage type of enums, right?
 			if (extended_enum) {
-				type_name = get_tok_str(v, NULL);
 				string_append_chars(gen_code_names, (char*)type_name);
-				string_append_chars(gen_code_names, ":names[] = { ");
+				string_append_chars(gen_code_names, ":name[] = { ");
 				string_append_chars(gen_code_values, (char*)type_name);
-				string_append_chars(gen_code_values, ":values[] = { ");
+				string_append_chars(gen_code_values, ":value[] = { ");
 			}
 			t.ref = s;
 			/* enum symbols have static storage */
@@ -4796,21 +4800,26 @@ static void struct_decl(CType *type, int u)
 			}
 			if (extended_enum)
 			{
-				struct string* gen_code;
-				gen_code = string_create();
+				if(struct_decl_codegen == 0)
+					struct_decl_codegen = string_create();
 
 				string_append_chars(gen_code_names, " }; ");
-				string_append(gen_code, gen_code_names);
 				string_append_chars(gen_code_values, " }; ");
-				string_append(gen_code, gen_code_values);
+				string_append(struct_decl_codegen, gen_code_names);
+				string_append(struct_decl_codegen, gen_code_values);
 
-				use_temp_buffer(gen_code->bytes, gen_code->bytes + gen_code->length);
-				printf("ENUM PARSED: %s \n", gen_code->bytes);
-				string_free(gen_code_names);
-				// todo: we're still leaking gen_code memory
 				tok = ';';
 			}
+			string_free(gen_code_names);
+			string_free(gen_code_values);
 		} else {
+			struct string* gen_code_names;
+			gen_code_names = string_create_with_chars("u8* ");
+			if(extended_enum)
+			{
+				string_append_chars(gen_code_names, (char*)type_name);
+				string_append_chars(gen_code_names, ":name[] = { ");
+			}
 			c = 0;
 			flexible = 0;
 			while (tok != '}') {
@@ -4886,6 +4895,11 @@ static void struct_decl(CType *type, int u)
 						v = anon_sym++;
 					}
 					if (v) {
+						if (extended_enum) {
+							string_append_chars(gen_code_names, "\"");
+							string_append_chars(gen_code_names, (char*)get_tok_str(v, NULL));
+							string_append_chars(gen_code_names, "\", ");
+						}
 						ss = sym_push(v | SYM_FIELD, &type1, 0, 0);
 						ss->a = ad1.a;
 						*ps = ss;
@@ -4903,6 +4917,24 @@ static void struct_decl(CType *type, int u)
 				tcc_warning("attribute '__cleanup__' ignored on type");
 			}
 			struct_layout(type, &ad);
+			if (extended_enum)
+			{
+				if(struct_decl_codegen == 0)
+					struct_decl_codegen = string_create();
+
+				string_append_chars(gen_code_names, " }; ");
+				string_append(struct_decl_codegen, gen_code_names);
+
+				tok = ';';
+			}
+			string_free(gen_code_names);
+		}
+		struct_decl_level--;
+		if(struct_decl_level == 0 && struct_decl_codegen != 0)
+		{
+			use_temp_buffer(struct_decl_codegen->bytes, struct_decl_codegen->bytes + struct_decl_codegen->length);
+			printf("Runtime info: %s \n", struct_decl_codegen->bytes);
+			struct_decl_codegen = 0;
 		}
 	}
 }
