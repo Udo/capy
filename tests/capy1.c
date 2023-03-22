@@ -7,6 +7,7 @@ struct MyTest {
 	u32 a;
 	f32 f;
 };
+u8* MyTest:names[] = { "a", "f", };
 
 enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 //u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};

@@ -15,9 +15,9 @@ void do_something(MyStruct* m)
 
 You can use the `.` operator instead of `->` when accessing members of struct pointers.
 
-## `struct` Keyword
+## structs
 
-The `struct` keyword can be omitted when declaring a struct variable.
+- The `struct` keyword can be omitted when declaring a struct variable.
 
 ## Compiler directives
 
