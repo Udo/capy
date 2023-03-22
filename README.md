@@ -27,7 +27,7 @@ The `struct` keyword can be omitted when declaring a struct variable.
 
 ## enums
 
-- runtime information `[@ext]`: enums tagged with @ext generate arrays called `MYENUM:names[]` and `MYENUM:values[]` (where MYENUM is the name of the enum), and this array contains the names and values of all enum constants as a string available at runtime.
+- runtime information `[@ext]`: enums tagged with @ext generate arrays called `MYENUM:names[]` and `MYENUM:values[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
 
 ## Minor things
 
