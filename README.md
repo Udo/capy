@@ -28,7 +28,7 @@ The `struct` keyword can be omitted when declaring a struct variable.
 ## enums
 
 - runtime information: enums tagged with `[@ext]` generate arrays called `MYENUM:names[]` and `MYENUM:values[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
-- *iota counter*: you can use the Go-like counter `iota` in enum and struct definitions (like \__COUNTER__ but more useful)
+- *iota counter*: you can use the Go-like counter `iota` in enum and struct definitions (like \_\_COUNTER__ but more useful)
 
 ## Minor things
 
