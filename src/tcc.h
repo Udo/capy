@@ -46,6 +46,7 @@
 #define ANSI_FG_WHITE	"\e[0;37m"
 
 #define TAG_HASH_EXT	0x7c83e37e
+#define TAG_HASH_FN		0x1618d37d
 
 #ifndef _WIN32
 # define WIN32_LEAN_AND_MEAN 1

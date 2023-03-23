@@ -6,16 +6,25 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _TCC_H
 #define mem_free		tcc_free
 #define mem_alloc		tcc_malloc
 #define mem_calloc		calloc
 #define mem_realloc		tcc_realloc
+#else
+#define mem_free		free
+#define mem_alloc		malloc
+#define mem_calloc		calloc
+#define mem_realloc		realloc
+#endif
+
 #define string_initial_capacity 16
 
 #ifndef countof
 #define countof(array) (sizeof(array) / sizeof(array[0]))
 #endif
 
+#ifndef u8
 typedef unsigned char 	u8;
 typedef char	 		s8;
 typedef char	 		b8;
@@ -27,7 +36,7 @@ typedef float		 	f32;
 typedef unsigned long 	u64;
 typedef long			s64;
 typedef double		 	f64;
-
+#endif
 
 void panic(char* msg)
 {
@@ -49,7 +58,7 @@ struct string {
 struct hashmap_item {
 	u64 hash;
 	void* data;
-	struct string* key;
+	void* key;
 	struct hashmap_item* next;
 	struct hashmap_item* next_in_order;
 	struct hashmap_item* prev_in_order;
@@ -116,6 +125,7 @@ u64 u64_hash(u64 v);
 s32 file_size(struct string* file_name) ;
 struct string* file_get_contents(struct string* file_name);
 b8 file_put_contents(struct string* file_name, struct string* content);
+
 struct list* list_create();
 void list_free(struct list* l);
 void list_append(struct list* l, void* item_data);
@@ -127,7 +137,6 @@ void list_insert_after(struct list* l, struct list_item* after, void* item_data)
 struct string* list_join(struct list* l, struct string* s);
 struct list* string_split(struct string* src, struct string* delim);
 
-/*
 struct hashmap* hashmap_create();
 void hashmap_free_buckets(struct hashmap_item* buckets, s32 count);
 void hashmap_free(struct hashmap* h);
@@ -135,9 +144,9 @@ void hashmap_order_add(struct hashmap* h, struct hashmap_item* it);
 void hashmap_order_delete(struct hashmap* h, struct hashmap_item* it);
 void hashmap_recap(struct hashmap* h, s32 new_capacity);
 struct hashmap_item* hashmap_get_entry(struct hashmap* h, u64 hash);
-void* hashmap_get(struct hashmap* h, u64 hash);
+void* hashmap_get_data(struct hashmap* h, u64 hash);
 s32 next_power_of_2(s32 n);
-void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, struct string* key);
+void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, void* key_data);
 void hashmap_insert_with_char_key(struct hashmap* h, char* key, void* item_data);
 struct hashmap_item* hashmap_first_entry(struct hashmap* h);
 struct hashmap_item* hashmap_next_entry(struct hashmap* h, struct hashmap_item* it);
@@ -146,7 +155,6 @@ void* hashmap_delete(struct hashmap* h, u64 hash);
 void* hashmap_delete_with_char_key(struct hashmap* h, char* key);
 struct list* hashmap_values(struct hashmap* h);
 struct list* hashmap_keys(struct hashmap* h);
-*/
 
 void string_init(struct string* s)
 {
@@ -804,9 +812,6 @@ s32 next_power_of_2(s32 n)
 }
 
 
-
-/*
-
 struct hashmap* hashmap_create()
 {
 	struct hashmap* result;
@@ -920,7 +925,7 @@ struct hashmap_item* hashmap_get_entry(struct hashmap* h, u64 hash)
 	return 0;
 }
 
-void* hashmap_get(struct hashmap* h, u64 hash)
+void* hashmap_get_data(struct hashmap* h, u64 hash)
 {
 	struct hashmap_item* entry;
 	entry = hashmap_get_entry(h, hash);
@@ -929,7 +934,7 @@ void* hashmap_get(struct hashmap* h, u64 hash)
 	return 0;
 }
 
-void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, struct string* key)
+void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, void* key_data)
 {
 	s32 idx;
 	struct hashmap_item* bucket;
@@ -953,7 +958,7 @@ void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, struct string*
 			struct hashmap_item* new_item;
 			new_item = mem_calloc(sizeof(struct hashmap_item), 1);
 			new_item->hash = hash;
-			new_item->key = key;
+			new_item->key = key_data;
 			new_item->data = item_data;
 			new_item->next = bucket->next;
 			new_item->bucket_idx = idx;
@@ -966,7 +971,7 @@ void hashmap_insert(struct hashmap* h, u64 hash, void* item_data, struct string*
 	else
 	{
 		bucket->hash = hash;
-		bucket->key = key;
+		bucket->key = key_data;
 		bucket->data = item_data;
 		bucket->bucket_idx = idx;
 		hashmap_order_add(h, bucket);
@@ -1004,8 +1009,8 @@ void* hashmap_delete_entry(struct hashmap* h, struct hashmap_item* it)
 	if(!it)
 		return 0;
 	idx = it->bucket_idx;
-	if(it->key)
-		string_free(it->key);
+	//if(it->key)
+	//	string_free(it->key);
 	r = it->data;
 	hashmap_order_delete(h, it);
 	bucket = &h->buckets[idx];
@@ -1079,4 +1084,4 @@ struct list* hashmap_keys(struct hashmap* h)
 	return result;
 }
 
-*/
+

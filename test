@@ -3,4 +3,4 @@
 SRCFILE="tests/$1.c"
 OUTFILE="bin/test_$1"
 
-./build && bin/capy -b "$SRCFILE" && "$OUTFILE"
+./build > build.log && time bin/capy -b "$SRCFILE" && "$OUTFILE"

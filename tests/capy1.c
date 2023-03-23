@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "capy1.types.playground.c"
+#include "../src/capy.h"
 #product "bin/test_capy1"
+
+#define fn	[@capyfn]
 
 struct [@ext] MyTest {
 	u32 a;
@@ -18,6 +20,16 @@ s32 MyTest:offset[] = { 0, 4, };*/
 enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 //u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 
+fn b8 equals(string* a, string* b)
+{
+	return(true);
+}
+
+fn b8 equals(u32 a, s32 b)
+{
+	return(a-b);
+}
+
 int main(int argc, char** argv) {
 
 	"[@Prefix]";
@@ -31,6 +43,8 @@ int main(int argc, char** argv) {
 	u8* mf = <><html>
 		let's goooo! <?= m2.f ?>
 		</html></>;
+	string* mystr = string_create_with_chars("hello world");
+
 
 	for(s32 i = 0; i < countof(MyTest:name); i++)
 		printf("MyTest field %i/%i = %s\n", i, countof(MyTest:name), MyTest:name[i]);
@@ -38,11 +52,13 @@ int main(int argc, char** argv) {
 	printf("hello world %i, %i, typeid=%i, typeid=%i, typeid=%i, typeid=%i %s\n", m.a, m2.a,
 		typeid(MyTest), typeid(int), typeid(*m), sizeof(u32), MyTest:name[0]);
 
-	printf("scope ID: %i\n",
-		scopeid(0));
+	printf("scope ID: %i | eq test %i\n",
+		scopeid(0), equals:2dd7922d(1, 2));
 
 	printf("ext: %p\n",
 		(s32)hash_into_u64("ext", 3));
+	printf("capyfn: %p\n",
+		(s32)hash_into_u64("capyfn", 6));
 
 	week day = Wed;
     printf("Enum test: %d = %s = %i\n", day, week:name[day], week:value[day]);

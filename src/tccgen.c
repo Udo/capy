@@ -1166,11 +1166,17 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c)
     if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) < SYM_FIRST_ANOM) {
         /* record symbol in token array */
         //printf("Identifier %s\n", get_tok_str(v & ~SYM_STRUCT, NULL));
+
         ts = table_ident[(v & ~SYM_STRUCT) - TOK_IDENT];
         if (v & SYM_STRUCT)
+        {
             ps = &ts->sym_struct;
+        }
         else
+        {
+            // printf(" ident[%s : %p] ", get_tok_str(v, 0), type->t);
             ps = &ts->sym_identifier;
+        }
         s->prev_tok = *ps;
         *ps = s;
         s->sym_scope = local_scope;
@@ -1189,6 +1195,7 @@ ST_FUNC Sym *global_identifier_push(int v, int t, int c)
     s->r = VT_CONST | VT_SYM;
     /* don't record anonymous symbol */
     if (v < SYM_FIRST_ANOM) {
+
         ps = &table_ident[v - TOK_IDENT]->sym_identifier;
         /* modify the top most local identifier, so that sym_identifier will
            point to 's' when popped; happens when called from inline asm */
@@ -1196,6 +1203,8 @@ ST_FUNC Sym *global_identifier_push(int v, int t, int c)
             ps = &(*ps)->prev_tok;
         s->prev_tok = *ps;
         *ps = s;
+
+		//printf(" ident[%s] ", get_tok_str(v, 0));
     }
     return s;
 }
@@ -1581,14 +1590,23 @@ static void merge_attr(AttributeDef *ad, AttributeDef *ad1)
 /* Merge some type attributes.  */
 static void patch_type(Sym *sym, CType *type)
 {
+	/*{
+		char tbuf1[256];
+		type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
+		printf("fn %s: type %s\n", funcname, tbuf1);
+	}*/
+
     if (!(type->t & VT_EXTERN) || IS_ENUM_VAL(sym->type.t)) {
         if (!(sym->type.t & VT_EXTERN))
         {
         	char tbuf1[256];
+        	char tbuf2[256];
             type_to_str(tbuf1, sizeof(tbuf1), &sym->type, NULL);
-			tcc_error("type error, cannot redefine <%s> '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-				tbuf1,
-				get_tok_str(sym->v, NULL));
+            type_to_str(tbuf2, sizeof(tbuf1), type, NULL);
+			tcc_error("type error, cannot redefine "ANSI_FG_CYAN "%s" ANSI_RESET "(%s) to "
+				ANSI_FG_CYAN "%s" ANSI_RESET "(%s)",
+				get_tok_str(sym->v, NULL), tbuf1,
+				get_tok_str(sym->v, NULL), tbuf2);
         }
         sym->type.t &= ~VT_EXTERN;
     }
@@ -1650,7 +1668,7 @@ static void patch_type(Sym *sym, CType *type)
 /* Merge some storage attributes.  */
 static void patch_storage(Sym *sym, AttributeDef *ad, CType *type)
 {
-    if (type)
+	if (type)
         patch_type(sym, type);
 
 #ifdef TCC_TARGET_PE
@@ -2912,6 +2930,144 @@ static void type_to_str(char *buf, int buf_size,
     if (t & VT_CONSTANT)
         pstrcat(buf, buf_size, "const ");
 
+    /*if (((t & VT_DEFSIGN) && bt == VT_BYTE)
+        || ((t & VT_UNSIGNED)
+            && (bt == VT_SHORT || bt == VT_INT || bt == VT_LLONG || bt == VT_BYTE)
+            && !IS_ENUM(t)
+            ))
+        pstrcat(buf, buf_size, (t & VT_UNSIGNED) ? "u" : "s");*/
+
+    buf_size -= strlen(buf);
+    buf += strlen(buf);
+
+    switch(bt) {
+    case VT_VOID:
+        tstr = "void";
+        goto add_tstr;
+    case VT_BOOL:
+        tstr = "_Bool";
+        goto add_tstr;
+    case VT_BYTE:
+        tstr = (t & VT_UNSIGNED) ? "u8" : "s8";
+        goto add_tstr;
+    case VT_SHORT:
+        tstr = (t & VT_UNSIGNED) ? "u16" : "s16";
+        goto add_tstr;
+    case VT_INT:
+        tstr = (t & VT_UNSIGNED) ? "u32" : "s32";
+        goto maybe_long;
+    case VT_LLONG:
+        tstr = (t & VT_UNSIGNED) ? "u128" : "s128";
+    maybe_long:
+        if (t & VT_LONG)
+            tstr = (t & VT_UNSIGNED) ? "u64" : "s64";
+        if (!IS_ENUM(t))
+            goto add_tstr;
+        tstr = "enum ";
+        goto tstruct;
+    case VT_FLOAT:
+        tstr = "f32";
+        goto add_tstr;
+    case VT_DOUBLE:
+        tstr = "f64";
+        if (!(t & VT_LONG))
+            goto add_tstr;
+    case VT_LDOUBLE:
+        tstr = "f128";
+    add_tstr:
+        pstrcat(buf, buf_size, tstr);
+        break;
+    case VT_STRUCT:
+		/*
+        tstr = "struct ";
+        if (IS_UNION(t))
+            tstr = "union ";
+        */
+        tstr = "";
+    tstruct:
+        pstrcat(buf, buf_size, tstr);
+        v = type->ref->v & ~SYM_STRUCT;
+        if (v >= SYM_FIRST_ANOM)
+            pstrcat(buf, buf_size, "<anonymous>");
+        else
+            pstrcat(buf, buf_size, get_tok_str(v, NULL));
+        break;
+    case VT_FUNC:
+        s = type->ref;
+        buf1[0]=0;
+        if (varstr && '*' == *varstr) {
+            pstrcat(buf1, sizeof(buf1), "(");
+            pstrcat(buf1, sizeof(buf1), varstr);
+            pstrcat(buf1, sizeof(buf1), ")");
+        }
+        pstrcat(buf1, buf_size, "(");
+        sa = s->next;
+        while (sa != NULL) {
+            char buf2[256];
+            type_to_str(buf2, sizeof(buf2), &sa->type, NULL);
+            pstrcat(buf1, sizeof(buf1), buf2);
+            sa = sa->next;
+            if (sa)
+                pstrcat(buf1, sizeof(buf1), ", ");
+        }
+        if (s->f.func_type == FUNC_ELLIPSIS)
+            pstrcat(buf1, sizeof(buf1), ", ...");
+        pstrcat(buf1, sizeof(buf1), ")");
+        type_to_str(buf, buf_size, &s->type, buf1);
+        goto no_var;
+    case VT_PTR:
+        s = type->ref;
+        if (t & VT_ARRAY) {
+            if (varstr && '*' == *varstr)
+                snprintf(buf1, sizeof(buf1), "(%s)[%d]", varstr, s->c);
+            else
+                snprintf(buf1, sizeof(buf1), "%s[%d]", varstr ? varstr : "", s->c);
+            type_to_str(buf, buf_size, &s->type, buf1);
+            goto no_var;
+        }
+        pstrcpy(buf1, sizeof(buf1), "*");
+        if (t & VT_CONSTANT)
+            pstrcat(buf1, buf_size, "const ");
+        if (t & VT_VOLATILE)
+            pstrcat(buf1, buf_size, "volatile ");
+        if (varstr)
+            pstrcat(buf1, sizeof(buf1), varstr);
+        type_to_str(buf, buf_size, &s->type, buf1);
+        goto no_var;
+    }
+    if (varstr) {
+        pstrcat(buf, buf_size, " ");
+        pstrcat(buf, buf_size, varstr);
+    }
+ no_var: ;
+}
+
+/*
+static void type_to_str_old(char *buf, int buf_size,
+                 CType *type, const char *varstr)
+{
+    int bt, v, t;
+    Sym *s, *sa;
+    char buf1[256];
+    const char *tstr;
+
+    t = type->t;
+    bt = t & VT_BTYPE;
+    buf[0] = '\0';
+
+    if (t & VT_EXTERN)
+        pstrcat(buf, buf_size, "extern ");
+    if (t & VT_STATIC)
+        pstrcat(buf, buf_size, "static ");
+    if (t & VT_TYPEDEF)
+        pstrcat(buf, buf_size, "typedef ");
+    if (t & VT_INLINE)
+        pstrcat(buf, buf_size, "inline ");
+    if (t & VT_VOLATILE)
+        pstrcat(buf, buf_size, "volatile ");
+    if (t & VT_CONSTANT)
+        pstrcat(buf, buf_size, "const ");
+
     if (((t & VT_DEFSIGN) && bt == VT_BYTE)
         || ((t & VT_UNSIGNED)
             && (bt == VT_SHORT || bt == VT_INT || bt == VT_LLONG)
@@ -3020,6 +3176,7 @@ static void type_to_str(char *buf, int buf_size,
     }
  no_var: ;
 }
+*/
 
 int type_to_id(CType* st)
 {
@@ -5266,167 +5423,172 @@ static int asm_label_instr(void)
 
 static int post_type(CType *type, AttributeDef *ad, int storage, int td)
 {
-    int n, l, t1, arg_size, align, unused_align;
-    Sym **plast, *s, *first;
-    AttributeDef ad1;
-    CType pt;
+	int n, l, t1, arg_size, align, unused_align;
+	Sym ** plast, * s, * first;
+	AttributeDef ad1;
+	CType pt;
 
-    if (tok == '(') {
-        /* function type, or recursive declarator (return if so) */
-        next();
-	if (td && !(td & TYPE_ABSTRACT))
-	  return 0;
-	if (tok == ')')
-	  l = 0;
-	else if (parse_btype(&pt, &ad1))
-	  l = FUNC_NEW;
-	else if (td) {
-	    merge_attr (ad, &ad1);
-	    return 0;
-	} else
-	  l = FUNC_OLD;
-        first = NULL;
-        plast = &first;
-        arg_size = 0;
-        if (l) {
-            for(;;) {
-                /* read param name and compute offset */
-                if (l != FUNC_OLD) {
-                    if ((pt.t & VT_BTYPE) == VT_VOID && tok == ')')
-                        break;
-                    type_decl(&pt, &ad1, &n, TYPE_DIRECT | TYPE_ABSTRACT);
-                    if ((pt.t & VT_BTYPE) == VT_VOID)
-                        tcc_error("parameter declared as void");
-                } else {
-                    n = tok;
-                    if (n < TOK_UIDENT)
-                        tcc_error("identifier expected but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(tok, 0));
-
-                    pt.t = VT_VOID; /* invalid type */
-                    pt.ref = NULL;
-                    next();
-                }
-                convert_parameter_type(&pt);
-                arg_size += (type_size(&pt, &align) + PTR_SIZE - 1) / PTR_SIZE;
-                s = sym_push(n | SYM_FIELD, &pt, 0, 0);
-                *plast = s;
-                plast = &s->next;
-                if (tok == ')')
-                    break;
-                skip(',');
-                if (l == FUNC_NEW && tok == TOK_DOTS) {
-                    l = FUNC_ELLIPSIS;
-                    next();
-                    break;
-                }
-		if (l == FUNC_NEW && !parse_btype(&pt, &ad1))
-		    tcc_error("invalid type");
-            }
-        } else
-            /* if no parameters, then old type prototype */
-            l = FUNC_OLD;
-        skip(')');
-        /* NOTE: const is ignored in returned type as it has a special
-           meaning in gcc / C++ */
-        type->t &= ~VT_CONSTANT;
-        /* some ancient pre-K&R C allows a function to return an array
-           and the array brackets to be put after the arguments, such
-           that "int c()[]" means something like "int[] c()" */
-        if (tok == '[') {
-            next();
-            skip(']'); /* only handle simple "[]" */
-            mk_pointer(type);
-        }
-        /* we push a anonymous symbol which will contain the function prototype */
-        ad->f.func_args = arg_size;
-        ad->f.func_type = l;
-        s = sym_push(SYM_FIELD, type, 0, 0);
-        s->a = ad->a;
-        s->f = ad->f;
-        s->next = first;
-        type->t = VT_FUNC;
-        type->ref = s;
-    } else if (tok == '[') {
-	int saved_nocode_wanted = nocode_wanted;
-        /* array definition */
-        next();
-	while (1) {
-	    /* XXX The optional type-quals and static should only be accepted
-	       in parameter decls.  The '*' as well, and then even only
-	       in prototypes (not function defs).  */
-	    switch (tok) {
-	    case TOK_RESTRICT1: case TOK_RESTRICT2: case TOK_RESTRICT3:
-	    case TOK_CONST1:
-	    case TOK_VOLATILE1:
-	    case TOK_STATIC:
-	    case '*':
+	if (tok == '(') {
+		/* function type, or recursive declarator (return if so) */
 		next();
-		continue;
-	    default:
-		break;
-	    }
-	    break;
+		if (td && !(td & TYPE_ABSTRACT))
+			return 0;
+		if (tok == ')')
+			l = 0;
+		else if (parse_btype( & pt, & ad1))
+			l = FUNC_NEW;
+		else if (td) {
+			merge_attr(ad, & ad1);
+			return 0;
+		} else
+			l = FUNC_OLD;
+		first = NULL;
+		plast = & first;
+		arg_size = 0;
+		if (l) {
+			for (;;) {
+				/* read param name and compute offset */
+				if (l != FUNC_OLD) {
+				if ((pt.t & VT_BTYPE) == VT_VOID && tok == ')')
+					break;
+				type_decl( & pt, & ad1, & n, TYPE_DIRECT | TYPE_ABSTRACT);
+				if ((pt.t & VT_BTYPE) == VT_VOID)
+					tcc_error("parameter declared as void");
+				} else {
+					n = tok;
+					if (n < TOK_UIDENT)
+						tcc_error("identifier expected but '"
+						ANSI_FG_CYAN "%s"
+						ANSI_RESET "' found", get_tok_str(tok, 0));
+
+					pt.t = VT_VOID; /* invalid type */
+					pt.ref = NULL;
+					next();
+				}
+				convert_parameter_type( & pt);
+				arg_size += (type_size( & pt, & align) + PTR_SIZE - 1) / PTR_SIZE;
+				s = sym_push(n | SYM_FIELD, & pt, 0, 0);
+				*plast = s;
+				plast = & s -> next;
+				if (tok == ')')
+					break;
+				skip(',');
+				if (l == FUNC_NEW && tok == TOK_DOTS) {
+					l = FUNC_ELLIPSIS;
+					next();
+					break;
+				}
+				if (l == FUNC_NEW && !parse_btype( & pt, & ad1))
+					tcc_error("invalid type");
+			}
+		} else
+		/* if no parameters, then old type prototype */
+			l = FUNC_OLD;
+		skip(')');
+		/* NOTE: const is ignored in returned type as it has a special
+		 meaning in gcc / C++ */
+		type -> t &= ~VT_CONSTANT;
+		/* some ancient pre-K&R C allows a function to return an array
+		 and the array brackets to be put after the arguments, such
+		 that "int c()[]" means something like "int[] c()" */
+		if (tok == '[') {
+			next();
+			skip(']'); /* only handle simple "[]" */
+			mk_pointer(type);
+		}
+		/* we push a anonymous symbol which will contain the function prototype */
+		ad -> f.func_args = arg_size;
+		ad -> f.func_type = l;
+		s = sym_push(SYM_FIELD, type, 0, 0);
+		s -> a = ad -> a;
+		s -> f = ad -> f;
+		s -> next = first;
+		type -> t = VT_FUNC;
+		type -> ref = s;
+
+	} else if (tok == '[') {
+		int saved_nocode_wanted = nocode_wanted;
+		/* array definition */
+		next();
+		while (1) {
+			/* XXX The optional type-quals and static should only be accepted
+				 in parameter decls.	The '*' as well, and then even only
+				 in prototypes (not function defs).	*/
+			switch (tok) {
+				case TOK_RESTRICT1:
+				case TOK_RESTRICT2:
+				case TOK_RESTRICT3:
+				case TOK_CONST1:
+				case TOK_VOLATILE1:
+				case TOK_STATIC:
+				case '*':
+					next();
+					continue;
+				default:
+					break;
+			}
+			break;
+		}
+		n = -1;
+		t1 = 0;
+		if (tok != ']') {
+			if (!local_stack || (storage & VT_STATIC))
+				vpushi(expr_const());
+			else {
+				/* VLAs (which can only happen with local_stack && !VT_STATIC)
+				 length must always be evaluated, even under nocode_wanted,
+				 so that its size slot is initialized (e.g. under sizeof
+				 or typeof).	*/
+				nocode_wanted = 0;
+				gexpr();
+			}
+			if ((vtop -> r & (VT_VALMASK | VT_LVAL | VT_SYM)) == VT_CONST) {
+				n = vtop -> c.i;
+				if (n < 0)
+				tcc_error("invalid array size");
+			} else {
+				if (!is_integer_btype(vtop -> type.t & VT_BTYPE))
+				tcc_error("size of variable length array should be an integer");
+				n = 0;
+				t1 = VT_VLA;
+			}
+		}
+		skip(']');
+		/* parse next post type */
+		post_type(type, ad, storage, 0);
+
+		if ((type -> t & VT_BTYPE) == VT_FUNC)
+		tcc_error("declaration of an array of functions");
+		if ((type -> t & VT_BTYPE) == VT_VOID ||
+		type_size(type, & unused_align) < 0)
+		tcc_error("declaration of an array of incomplete type elements");
+
+		t1 |= type -> t & VT_VLA;
+
+		if (t1 & VT_VLA) {
+			if (n < 0)
+				tcc_error("need explicit inner array size in VLAs");
+			loc -= type_size( & int_type, & align);
+			loc &= -align;
+			n = loc;
+
+			vla_runtime_type_size(type, & align);
+			gen_op('*');
+			vset( & int_type, VT_LOCAL | VT_LVAL, n);
+			vswap();
+			vstore();
+		}
+		if (n != -1)
+			vpop();
+		nocode_wanted = saved_nocode_wanted;
+
+		/* we push an anonymous symbol which will contain the array
+		 element type */
+		s = sym_push(SYM_FIELD, type, 0, n);
+		type -> t = (t1 ? VT_VLA : VT_ARRAY) | VT_PTR;
+		type -> ref = s;
 	}
-        n = -1;
-        t1 = 0;
-        if (tok != ']') {
-            if (!local_stack || (storage & VT_STATIC))
-                vpushi(expr_const());
-            else {
-		/* VLAs (which can only happen with local_stack && !VT_STATIC)
-		   length must always be evaluated, even under nocode_wanted,
-		   so that its size slot is initialized (e.g. under sizeof
-		   or typeof).  */
-		nocode_wanted = 0;
-		gexpr();
-	    }
-            if ((vtop->r & (VT_VALMASK | VT_LVAL | VT_SYM)) == VT_CONST) {
-                n = vtop->c.i;
-                if (n < 0)
-                    tcc_error("invalid array size");
-            } else {
-                if (!is_integer_btype(vtop->type.t & VT_BTYPE))
-                    tcc_error("size of variable length array should be an integer");
-                n = 0;
-                t1 = VT_VLA;
-            }
-        }
-        skip(']');
-        /* parse next post type */
-        post_type(type, ad, storage, 0);
-
-        if ((type->t & VT_BTYPE) == VT_FUNC)
-            tcc_error("declaration of an array of functions");
-        if ((type->t & VT_BTYPE) == VT_VOID
-            || type_size(type, &unused_align) < 0)
-            tcc_error("declaration of an array of incomplete type elements");
-
-        t1 |= type->t & VT_VLA;
-
-        if (t1 & VT_VLA) {
-            if (n < 0)
-              tcc_error("need explicit inner array size in VLAs");
-            loc -= type_size(&int_type, &align);
-            loc &= -align;
-            n = loc;
-
-            vla_runtime_type_size(type, &align);
-            gen_op('*');
-            vset(&int_type, VT_LOCAL|VT_LVAL, n);
-            vswap();
-            vstore();
-        }
-        if (n != -1)
-            vpop();
-	nocode_wanted = saved_nocode_wanted;
-
-        /* we push an anonymous symbol which will contain the array
-           element type */
-        s = sym_push(SYM_FIELD, type, 0, n);
-        type->t = (t1 ? VT_VLA : VT_ARRAY) | VT_PTR;
-        type->ref = s;
-    }
-    return 1;
+	return 1;
 }
 
 /* Parse a type declarator (except basic type), and return the type
@@ -5507,11 +5669,22 @@ static CType *type_decl(CType *type, AttributeDef *ad, int *v, int td)
     parse_attribute(ad);
     type->t |= storage;
 
+	/*
 	{
 		char tbuf1[256];
 		type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
-		//printf("DEBUG: type %s sym=%p t=%i\n", tbuf1, (void*)type->ref, type_to_id(type));
+		printf("DEBUG: type %s sym=%s t=%i\n", tbuf1, get_tok_str(v,0), type_to_id(type));
 	}
+	*/
+
+	/*		//if(fnattr.a.tag == TAG_HASH_FN)
+		{
+			char tbuf1[256];
+            type_to_str(tbuf1, sizeof(tbuf1), type, NULL);
+			printf("fn define: "ANSI_FG_CYAN "%s" ANSI_RESET "(%s)\n",
+				get_tok_str(type -> ref, NULL), tbuf1);
+		}
+*/
 
     return ret;
 }
@@ -8449,271 +8622,286 @@ static void free_inline_functions(TCCState *s)
 static int decl0(int l, int is_for_loop_init, Sym *func_sym)
 {
     int v, has_init, r;
-    CType type, btype;
-    Sym *sym;
-    AttributeDef ad, adbase;
+	CType type, btype;
+	Sym *sym;
+	AttributeDef ad, adbase;
 
-    while (1) {
-	if (tok == TOK_STATIC_ASSERT) {
-	    CString error_str;
-	    int c;
+	while (1) {
+		if (tok == TOK_STATIC_ASSERT) {
+			CString error_str;
+			int c;
 
-	    next();
-	    skip('(');
-	    c = expr_const();
+			next();
+			skip('(');
+			c = expr_const();
 
-	    if (tok == ')') {
-		if (!c)
-		    tcc_error("_Static_assert fail");
-		next();
-		goto static_assert_out;
-	    }
+			if (tok == ')') {
+				if (!c)
+				tcc_error("_Static_assert fail");
+				next();
+				goto static_assert_out;
+			}
 
-	    skip(',');
-	    parse_mult_str(&error_str, "string constant");
-	    if (c == 0)
-		tcc_error("%s", (char *)error_str.data);
-	    cstr_free(&error_str);
-	    skip(')');
-	  static_assert_out:
-            skip(';');
-	    continue;
-	}
-        if (!parse_btype(&btype, &adbase)) {
-            if (is_for_loop_init)
-                return 0;
-            /* skip redundant ';' if not in old parameter decl scope */
-            if (tok == ';' && l != VT_CMP) {
-                next();
-                continue;
-            }
-            if (l != VT_CONST)
-                break;
-            if (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3) {
-                /* global asm block */
-                asm_global_instr();
-                continue;
-            }
-            if (tok >= TOK_UIDENT) {
-               /* special test for old K&R protos without explicit int
-                  type. Only accepted when defining global data */
-                btype.t = VT_INT;
-            } else {
-                if (tok != TOK_EOF)
-                    expect("declaration");
-                break;
-            }
-        }
-        if (tok == ';') {
-	    if ((btype.t & VT_BTYPE) == VT_STRUCT) {
-		int v = btype.ref->v;
-		if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) >= SYM_FIRST_ANOM)
-        	    tcc_warning("unnamed struct/union that defines no instances");
-                next();
-                continue;
-	    }
-            if (IS_ENUM(btype.t)) {
-                next();
-                continue;
-            }
-        }
-        while (1) { /* iterate thru each declaration */
-            type = btype;
-	    /* If the base type itself was an array type of unspecified
-	       size (like in 'typedef int arr[]; arr x = {1};') then
-	       we will overwrite the unknown size by the real one for
-	       this decl.  We need to unshare the ref symbol holding
-	       that size.  */
-	    if ((type.t & VT_ARRAY) && type.ref->c < 0) {
-		type.ref = sym_push(SYM_FIELD, &type.ref->type, 0, type.ref->c);
-	    }
-	    ad = adbase;
-            type_decl(&type, &ad, &v, TYPE_DIRECT);
+			skip(',');
+			parse_mult_str(&error_str, "string constant");
+			if (c == 0)
+				tcc_error("%s", (char *)error_str.data);
+			cstr_free(&error_str);
+			skip(')');
+			static_assert_out:
+			skip(';');
+			continue;
+		}
+		if (!parse_btype(&btype, &adbase)) {
+			if (is_for_loop_init)
+				return 0;
+			/* skip redundant ';' if not in old parameter decl scope */
+			if (tok == ';' && l != VT_CMP) {
+				next();
+				continue;
+			}
+			if (l != VT_CONST)
+				break;
+			if (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3) {
+				/* global asm block */
+				asm_global_instr();
+				continue;
+			}
+			if (tok >= TOK_UIDENT) {
+				/* special test for old K&R protos without explicit int
+				 type. Only accepted when defining global data */
+				btype.t = VT_INT;
+			} else {
+				if (tok != TOK_EOF)
+				expect("declaration");
+				break;
+			}
+		}
+		if (tok == ';') {
+			if ((btype.t & VT_BTYPE) == VT_STRUCT) {
+				int v = btype.ref->v;
+				if (!(v & SYM_FIELD) && (v & ~SYM_STRUCT) >= SYM_FIRST_ANOM)
+				tcc_warning("unnamed struct/union that defines no instances");
+				next();
+				continue;
+			}
+			if (IS_ENUM(btype.t)) {
+				next();
+				continue;
+			}
+		}
+		while (1) { /* iterate thru each declaration */
+			type = btype;
+			/* If the base type itself was an array type of unspecified
+				 size (like in 'typedef int arr[]; arr x = {1};') then
+				 we will overwrite the unknown size by the real one for
+				 this decl.	We need to unshare the ref symbol holding
+				 that size.	*/
+			if ((type.t & VT_ARRAY) && type.ref->c < 0) {
+				type.ref = sym_push(SYM_FIELD, &type.ref->type, 0, type.ref->c);
+			}
+			ad = adbase;
+			type_decl(&type, &ad, &v, TYPE_DIRECT);
 #if 0
-            {
-                char buf[500];
-                type_to_str(buf, sizeof(buf), &type, get_tok_str(v, NULL));
-                printf("type = '" ANSI_FG_CYAN "%s" ANSI_RESET "'\n", buf);
-            }
+			{
+				char buf[500];
+				type_to_str(buf, sizeof(buf), &type, get_tok_str(v, NULL));
+				printf("type = '" ANSI_FG_CYAN "%s" ANSI_RESET "'\n", buf);
+			}
 #endif
-            if ((type.t & VT_BTYPE) == VT_FUNC) {
-                if ((type.t & VT_STATIC) && (l == VT_LOCAL))
-                    tcc_error("function without file scope cannot be static");
-                /* if old style function prototype, we accept a
-                   declaration list */
-                sym = type.ref;
-                if (sym->f.func_type == FUNC_OLD && l == VT_CONST)
-                    decl0(VT_CMP, 0, sym);
-#ifdef TCC_TARGET_MACHO
-                if (sym->f.func_alwinl
-                    && ((type.t & (VT_EXTERN | VT_INLINE))
-                        == (VT_EXTERN | VT_INLINE))) {
-                    /* always_inline functions must be handled as if they
-                       don't generate multiple global defs, even if extern
-                       inline, i.e. GNU inline semantics for those.  Rewrite
-                       them into static inline.  */
-                    type.t &= ~VT_EXTERN;
-                    type.t |= VT_STATIC;
-                }
-#endif
-                /* always compile 'extern inline' */
-                if (type.t & VT_EXTERN)
-                    type.t &= ~VT_INLINE;
-            }
+			if ((type.t & VT_BTYPE) == VT_FUNC) {
 
-            if (gnu_ext && (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3)) {
-                ad.asm_label = asm_label_instr();
-                /* parse one last attribute list, after asm label */
-                parse_attribute(&ad);
-            #if 0
-                /* gcc does not allow __asm__("label") with function definition,
-                   but why not ... */
-                if (tok == '{')
-                    expect(";");
-            #endif
-            }
+				if (ad.a.tag == TAG_HASH_FN) {
+					char tbuf1[256];
+					char vident[256];
+					type_to_str(tbuf1, sizeof(tbuf1), &type, NULL);
+					sprintf(vident, "%s:%x", get_tok_str(v, 0), type_to_id(&type));
+					v = tok_alloc(vident, strlen(vident))->tok;
+					/* to do:
+					 * - patch the original token to alert the compiler that this is a pattern-matched function type
+					 * - so we can later compare the type signature at calling sites
+					 * - make a decision about what to do with the return type
+					 *   - maybe ignore, make it not part of the signature?
+					 *   - or try to infer the return type from the calling site?
+					 * - we should convenience-match basic numeric types as long as information is not lost
+					 * - if no capy function matches, we should also look whether there's a C function that does
+					*/
+					/*
+					int bare_ident_len = strlen(get_tok_str(v, 0));
+					table_ident[v - TOK_IDENT]->str[bare_ident_len] = ':';
+					sprintf(
+						&table_ident[v - TOK_IDENT]->str[bare_ident_len+1],
+						"%x", type_to_id(&type));
+					*/
+					printf("FN DECL %s <%s>\n", get_tok_str(v, 0), tbuf1);
+				}
 
-#ifdef TCC_TARGET_PE
-            if (ad.a.dllimport || ad.a.dllexport) {
-                if (type.t & VT_STATIC)
-                    tcc_error("cannot have dll linkage with static");
-                if (type.t & VT_TYPEDEF) {
-                    tcc_warning("'" ANSI_FG_CYAN "%s" ANSI_RESET "' attribute ignored for typedef",
-                        ad.a.dllimport ? (ad.a.dllimport = 0, "dllimport") :
-                        (ad.a.dllexport = 0, "dllexport"));
-                } else if (ad.a.dllimport) {
-                    if ((type.t & VT_BTYPE) == VT_FUNC)
-                        ad.a.dllimport = 0;
-                    else
-                        type.t |= VT_EXTERN;
-                }
-            }
-#endif
-            if (tok == '{') {
-                if (l != VT_CONST)
-                    tcc_error("cannot use local functions");
-                if ((type.t & VT_BTYPE) != VT_FUNC)
-                    expect("function definition");
+				if ((type.t & VT_STATIC) && (l == VT_LOCAL))
+					tcc_error("function without file scope cannot be static");
+				/* if old style function prototype, we accept a
+				 declaration list */
+				sym = type.ref;
+				if (sym->f.func_type == FUNC_OLD && l == VT_CONST)
+					decl0(VT_CMP, 0, sym);
+		#ifdef TCC_TARGET_MACHO
+				if (sym->f.func_alwinl && ((type.t & (VT_EXTERN | VT_INLINE)) == (VT_EXTERN | VT_INLINE))) {
+					/* always_inline functions must be handled as if they
+						 don't generate multiple global defs, even if extern
+						 inline, i.e. GNU inline semantics for those.	Rewrite
+						 them into static inline.	*/
+					type.t &= ~VT_EXTERN;
+					type.t |= VT_STATIC;
+				}
+		#endif
+				/* always compile 'extern inline' */
+				if (type.t & VT_EXTERN)
+				type.t &= ~VT_INLINE;
+			}
 
-                /* reject abstract declarators in function definition
-                   make old style params without decl have int type */
-                sym = type.ref;
-                while ((sym = sym->next) != NULL) {
-                    if (!(sym->v & ~SYM_FIELD))
-                        tcc_error("identifier expected but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(sym->v, 0));
+			if (gnu_ext && (tok == TOK_ASM1 || tok == TOK_ASM2 || tok == TOK_ASM3)) {
+				ad.asm_label = asm_label_instr();
+				/* parse one last attribute list, after asm label */
+				parse_attribute(&ad);
+		#if 0
+						/* gcc does not allow __asm__("label") with function definition,
+							 but why not ... */
+						if (tok == '{')
+							expect(";");
+		#endif
+			}
 
-                    if (sym->type.t == VT_VOID)
-                        sym->type = int_type;
-                }
+		#ifdef TCC_TARGET_PE
+			if (ad.a.dllimport || ad.a.dllexport) {
+				if (type.t & VT_STATIC)
+					tcc_error("cannot have dll linkage with static");
+				if (type.t & VT_TYPEDEF) {
+					tcc_warning("'" ANSI_FG_CYAN "%s" ANSI_RESET "' attribute ignored for typedef",
+							ad.a.dllimport ? (ad.a.dllimport = 0, "dllimport") : (ad.a.dllexport = 0, "dllexport"));
+				} else if (ad.a.dllimport) {
+					if ((type.t & VT_BTYPE) == VT_FUNC)
+						ad.a.dllimport = 0;
+				else
+					type.t |= VT_EXTERN;
+				}
+			}
+		#endif
+			if (tok == '{') {
+				if (l != VT_CONST)
+					tcc_error("cannot use local functions");
+				if ((type.t & VT_BTYPE) != VT_FUNC)
+					expect("function definition");
 
-                /* apply post-declaraton attributes */
-                merge_funcattr(&type.ref->f, &ad.f);
+				/* reject abstract declarators in function definition
+				 make old style params without decl have int type */
+				sym = type.ref;
+				while ((sym = sym->next) != NULL) {
+					if (!(sym->v & ~SYM_FIELD))
+						tcc_error("identifier expected but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(sym->v, 0));
 
-                /* put function symbol */
-                type.t &= ~VT_EXTERN;
-                sym = external_sym(v, &type, 0, &ad);
+					if (sym->type.t == VT_VOID)
+						sym->type = int_type;
+				}
 
-                /* static inline functions are just recorded as a kind
-                   of macro. Their code will be emitted at the end of
-                   the compilation unit only if they are used */
-                if (sym->type.t & VT_INLINE) {
-                    struct InlineFunc *fn;
-                    fn = tcc_malloc(sizeof *fn + strlen(file->filename));
-                    strcpy(fn->filename, file->filename);
-                    fn->sym = sym;
-		    skip_or_save_block(&fn->func_str);
-                    dynarray_add(&tcc_state->inline_fns,
-				 &tcc_state->nb_inline_fns, fn);
-                } else {
-                    /* compute text section */
-                    cur_text_section = ad.section;
-                    if (!cur_text_section)
-                        cur_text_section = text_section;
-                    gen_function(sym);
-                }
-                break;
-            } else {
-		if (l == VT_CMP) {
-		    /* find parameter in function parameter list */
-		    for (sym = func_sym->next; sym; sym = sym->next)
-			if ((sym->v & ~SYM_FIELD) == v)
-			    goto found;
-		    tcc_error("declaration for parameter '" ANSI_FG_CYAN "%s" ANSI_RESET "' but no such parameter",
-			      get_tok_str(v, NULL));
-found:
-		    if (type.t & VT_STORAGE) /* 'register' is okay */
-		        tcc_error("storage class specified for '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-				  get_tok_str(v, NULL));
-		    if (sym->type.t != VT_VOID)
-		        tcc_error("redefinition of parameter '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-				  get_tok_str(v, NULL));
-		    convert_parameter_type(&type);
-		    sym->type = type;
-		} else if (type.t & VT_TYPEDEF) {
-                    /* save typedefed type  */
-                    /* XXX: test storage specifiers ? */
-                    sym = sym_find(v);
-                    if (sym && sym->sym_scope == local_scope) {
-                        if (!is_compatible_types(&sym->type, &type)
-                            || !(sym->type.t & VT_TYPEDEF))
-                            tcc_error("incompatible redefinition of '" ANSI_FG_CYAN "%s" ANSI_RESET "'",
-                                get_tok_str(v, NULL));
-                        sym->type = type;
-                    } else {
-                        sym = sym_push(v, &type, 0, 0);
-                    }
-                    sym->a = ad.a;
-                    sym->f = ad.f;
-		} else if ((type.t & VT_BTYPE) == VT_VOID
-			   && !(type.t & VT_EXTERN)) {
-		    tcc_error("declaration of void object");
-                } else {
-                    r = 0;
-                    if ((type.t & VT_BTYPE) == VT_FUNC) {
-                        /* external function definition */
-                        /* specific case for func_call attribute */
-                        type.ref->f = ad.f;
-                    } else if (!(type.t & VT_ARRAY)) {
-                        /* not lvalue if array */
-                        r |= VT_LVAL;
-                    }
-                    has_init = (tok == '=');
-                    if (has_init && (type.t & VT_VLA))
-                        tcc_error("variable length array cannot be initialized");
-                    if (((type.t & VT_EXTERN) && (!has_init || l != VT_CONST))
-		        || (type.t & VT_BTYPE) == VT_FUNC
-                        /* as with GCC, uninitialized global arrays with no size
-                           are considered extern: */
-                        || ((type.t & VT_ARRAY) && !has_init
-                            && l == VT_CONST && type.ref->c < 0)
-                        ) {
-                        /* external variable or function */
-                        type.t |= VT_EXTERN;
-                        sym = external_sym(v, &type, r, &ad);
-                    } else {
-                        if (type.t & VT_STATIC)
-                            r |= VT_CONST;
-                        else
-                            r |= l;
-                        if (has_init)
-                            next();
-                        else if (l == VT_CONST)
-                            /* uninitialized global variables may be overridden */
-                            type.t |= VT_EXTERN;
-                        decl_initializer_alloc(&type, &ad, r, has_init, v, l);
-                    }
-                }
-                if (tok != ',') {
-                    if (is_for_loop_init)
-                        return 1;
-                    skip(';');
-                    break;
-                }
-                next();
-            }
-        }
-    }
-    return 0;
+				/* apply post-declaraton attributes */
+				merge_funcattr(&type.ref->f, &ad.f);
+
+				/* put function symbol */
+				type.t &= ~VT_EXTERN;
+				sym = external_sym(v, &type, 0, &ad);
+
+				/* static inline functions are just recorded as a kind
+				 of macro. Their code will be emitted at the end of
+				 the compilation unit only if they are used */
+				if (sym->type.t & VT_INLINE) {
+					struct InlineFunc *fn;
+					fn = tcc_malloc(sizeof *fn + strlen(file->filename));
+					strcpy(fn->filename, file->filename);
+					fn->sym = sym;
+					skip_or_save_block(&fn->func_str);
+					dynarray_add(&tcc_state->inline_fns, &tcc_state->nb_inline_fns, fn);
+				} else {
+					/* compute text section */
+					cur_text_section = ad.section;
+					if (!cur_text_section)
+						cur_text_section = text_section;
+					gen_function(sym);
+				}
+				break;
+			} else {
+				if (l == VT_CMP) {
+					/* find parameter in function parameter list */
+					for (sym = func_sym->next; sym; sym = sym->next)
+						if ((sym->v & ~SYM_FIELD) == v)
+							goto found;
+					tcc_error("declaration for parameter '" ANSI_FG_CYAN "%s" ANSI_RESET "' but no such parameter",
+								get_tok_str(v, NULL));
+					found:
+					if (type.t & VT_STORAGE) /* 'register' is okay */
+						tcc_error("storage class specified for '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+					if (sym->type.t != VT_VOID)
+						tcc_error("redefinition of parameter '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+					convert_parameter_type(&type);
+					sym->type = type;
+				} else if (type.t & VT_TYPEDEF) {
+					/* save typedefed type	*/
+					/* XXX: test storage specifiers ? */
+					sym = sym_find(v);
+					if (sym && sym->sym_scope == local_scope) {
+						if (!is_compatible_types(&sym->type, &type) || !(sym->type.t & VT_TYPEDEF))
+						tcc_error("incompatible redefinition of '" ANSI_FG_CYAN "%s" ANSI_RESET "'", get_tok_str(v, NULL));
+						sym->type = type;
+					} else {
+						sym = sym_push(v, &type, 0, 0);
+					}
+					sym->a = ad.a;
+					sym->f = ad.f;
+				} else if ((type.t & VT_BTYPE) == VT_VOID && !(type.t & VT_EXTERN)) {
+					tcc_error("declaration of void object");
+				} else {
+					r = 0;
+					if ((type.t & VT_BTYPE) == VT_FUNC) {
+						/* external function definition */
+						/* specific case for func_call attribute */
+						type.ref->f = ad.f;
+					} else if (!(type.t & VT_ARRAY)) {
+						/* not lvalue if array */
+						r |= VT_LVAL;
+					}
+					has_init = (tok == '=');
+					if (has_init && (type.t & VT_VLA))
+						tcc_error("variable length array cannot be initialized");
+					if (((type.t & VT_EXTERN) && (!has_init || l != VT_CONST)) ||
+						(type.t & VT_BTYPE) == VT_FUNC
+						/* as with GCC, uninitialized global arrays with no size
+							 are considered extern: */
+						|| ((type.t & VT_ARRAY) && !has_init && l == VT_CONST && type.ref->c < 0)) {
+						/* external variable or function */
+						type.t |= VT_EXTERN;
+						sym = external_sym(v, &type, r, &ad);
+					} else {
+						if (type.t & VT_STATIC)
+							r |= VT_CONST;
+						else
+							r |= l;
+						if (has_init)
+							next();
+						else if (l == VT_CONST)
+							/* uninitialized global variables may be overridden */
+							type.t |= VT_EXTERN;
+						decl_initializer_alloc(&type, &ad, r, has_init, v, l);
+					}
+				}
+				if (tok != ',') {
+					if (is_for_loop_init)
+						return 1;
+					skip(';');
+					break;
+				}
+				next();
+			}
+		}
+	}
+	return 0;
 }
 
 static void decl(int l)

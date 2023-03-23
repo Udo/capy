@@ -444,7 +444,7 @@ static TokenSym *tok_alloc_new(TokenSym **pts, const char *str, int len)
         table_ident = ptable;
     }
 
-    ts = tal_realloc(toksym_alloc, 0, sizeof(TokenSym) + len);
+    ts = tal_realloc(toksym_alloc, 0, sizeof(TokenSym) + len + 64); // we're padding this a little in case we need to rewrite an identifier later
     table_ident[i] = ts;
     ts->tok = tok_ident++;
     ts->sym_define = NULL;
@@ -588,6 +588,7 @@ ST_FUNC const char *get_tok_str(int v, CValue *cv)
             *p++ = v;
             *p = '\0';
         } else if (v < tok_ident) {
+			//printf("ti:%s:", table_ident[v - TOK_IDENT]->str);
             return table_ident[v - TOK_IDENT]->str;
         } else if (v >= SYM_FIRST_ANOM) {
             /* special name for anonymous symbol */
