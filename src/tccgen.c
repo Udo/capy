@@ -21,6 +21,7 @@
 #define USING_GLOBALS
 #include "tcc.h"
 #include "capy.h"
+#include "capygen.h"
 
 /********************************************************/
 /* global variables */
@@ -1134,10 +1135,11 @@ ST_INLN Sym *sym_or_struct_find(int v)
 
 ST_INLN Sym *sym_find(int v)
 {
-    v -= TOK_IDENT;
-    if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
-        return NULL;
-    return table_ident[v]->sym_identifier;
+	v -= TOK_IDENT;
+	if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
+		return NULL;
+	// printf(" [sym:%s] ", table_ident[v]->str);
+	return table_ident[v]->sym_identifier;
 }
 
 static int sym_scope(Sym *s)
@@ -1623,6 +1625,7 @@ static void patch_type(Sym *sym, CType *type)
 
     } else if ((sym->type.t & VT_BTYPE) == VT_FUNC) {
         int static_proto = sym->type.t & VT_STATIC;
+        //printf(" def[%s] ", get_tok_str(sym->v, 0));
         /* warn if static follows non-static function declaration */
         if ((type->t & VT_STATIC) && !static_proto
             /* XXX this test for inline shouldn't be here.  Until we
@@ -2930,13 +2933,6 @@ static void type_to_str(char *buf, int buf_size,
     if (t & VT_CONSTANT)
         pstrcat(buf, buf_size, "const ");
 
-    /*if (((t & VT_DEFSIGN) && bt == VT_BYTE)
-        || ((t & VT_UNSIGNED)
-            && (bt == VT_SHORT || bt == VT_INT || bt == VT_LLONG || bt == VT_BYTE)
-            && !IS_ENUM(t)
-            ))
-        pstrcat(buf, buf_size, (t & VT_UNSIGNED) ? "u" : "s");*/
-
     buf_size -= strlen(buf);
     buf += strlen(buf);
 
@@ -3014,6 +3010,137 @@ static void type_to_str(char *buf, int buf_size,
             pstrcat(buf1, sizeof(buf1), ", ...");
         pstrcat(buf1, sizeof(buf1), ")");
         type_to_str(buf, buf_size, &s->type, buf1);
+        goto no_var;
+    case VT_PTR:
+        s = type->ref;
+        if (t & VT_ARRAY) {
+            if (varstr && '*' == *varstr)
+                snprintf(buf1, sizeof(buf1), "(%s)[%d]", varstr, s->c);
+            else
+                snprintf(buf1, sizeof(buf1), "%s[%d]", varstr ? varstr : "", s->c);
+            type_to_str(buf, buf_size, &s->type, buf1);
+            goto no_var;
+        }
+        pstrcpy(buf1, sizeof(buf1), "*");
+        if (t & VT_CONSTANT)
+            pstrcat(buf1, buf_size, "const ");
+        if (t & VT_VOLATILE)
+            pstrcat(buf1, buf_size, "volatile ");
+        if (varstr)
+            pstrcat(buf1, sizeof(buf1), varstr);
+        type_to_str(buf, buf_size, &s->type, buf1);
+        goto no_var;
+    }
+    if (varstr) {
+        pstrcat(buf, buf_size, " ");
+        pstrcat(buf, buf_size, varstr);
+    }
+ no_var: ;
+}
+
+// fixme this is just type_to_str with the return type removed
+static void func_type_to_str(char *buf, int buf_size,
+                 CType *type, const char *varstr)
+{
+    int bt, v, t;
+    Sym *s, *sa;
+    char buf1[256];
+    const char *tstr;
+
+    t = type->t;
+    bt = t & VT_BTYPE;
+    buf[0] = '\0';
+
+    if (t & VT_EXTERN)
+        pstrcat(buf, buf_size, "extern ");
+    if (t & VT_STATIC)
+        pstrcat(buf, buf_size, "static ");
+    if (t & VT_TYPEDEF)
+        pstrcat(buf, buf_size, "typedef ");
+    if (t & VT_INLINE)
+        pstrcat(buf, buf_size, "inline ");
+    if (t & VT_VOLATILE)
+        pstrcat(buf, buf_size, "volatile ");
+    if (t & VT_CONSTANT)
+        pstrcat(buf, buf_size, "const ");
+
+    buf_size -= strlen(buf);
+    buf += strlen(buf);
+
+    switch(bt) {
+    case VT_VOID:
+        tstr = "void";
+        goto add_tstr;
+    case VT_BOOL:
+        tstr = "_Bool";
+        goto add_tstr;
+    case VT_BYTE:
+        tstr = (t & VT_UNSIGNED) ? "u8" : "s8";
+        goto add_tstr;
+    case VT_SHORT:
+        tstr = (t & VT_UNSIGNED) ? "u16" : "s16";
+        goto add_tstr;
+    case VT_INT:
+        tstr = (t & VT_UNSIGNED) ? "u32" : "s32";
+        goto maybe_long;
+    case VT_LLONG:
+        tstr = (t & VT_UNSIGNED) ? "u128" : "s128";
+    maybe_long:
+        if (t & VT_LONG)
+            tstr = (t & VT_UNSIGNED) ? "u64" : "s64";
+        if (!IS_ENUM(t))
+            goto add_tstr;
+        tstr = "enum ";
+        goto tstruct;
+    case VT_FLOAT:
+        tstr = "f32";
+        goto add_tstr;
+    case VT_DOUBLE:
+        tstr = "f64";
+        if (!(t & VT_LONG))
+            goto add_tstr;
+    case VT_LDOUBLE:
+        tstr = "f128";
+    add_tstr:
+        pstrcat(buf, buf_size, tstr);
+        break;
+    case VT_STRUCT:
+		/*
+        tstr = "struct ";
+        if (IS_UNION(t))
+            tstr = "union ";
+        */
+        tstr = "";
+    tstruct:
+        pstrcat(buf, buf_size, tstr);
+        v = type->ref->v & ~SYM_STRUCT;
+        if (v >= SYM_FIRST_ANOM)
+            pstrcat(buf, buf_size, "<anonymous>");
+        else
+            pstrcat(buf, buf_size, get_tok_str(v, NULL));
+        break;
+    case VT_FUNC:
+        s = type->ref;
+        //buf1[0]=0;
+        if (varstr && '*' == *varstr) {
+            pstrcat(buf, buf_size, "(");
+            pstrcat(buf, buf_size, varstr);
+            pstrcat(buf, buf_size, ")");
+        }
+        pstrcat(buf, buf_size, "(");
+        sa = s->next;
+        while (sa != NULL) {
+            char buf2[256];
+            type_to_str(buf2, sizeof(buf2), &sa->type, NULL);
+            pstrcat(buf, buf_size, buf2);
+            sa = sa->next;
+            if (sa)
+                pstrcat(buf, buf_size, ", ");
+        }
+        if (s->f.func_type == FUNC_ELLIPSIS)
+            pstrcat(buf, buf_size, ", ...");
+        pstrcat(buf, buf_size, ")");
+        //type_to_str(buf, buf_size, &s->type, buf1);
         goto no_var;
     case VT_PTR:
         s = type->ref;
@@ -3181,7 +3308,7 @@ static void type_to_str_old(char *buf, int buf_size,
 int type_to_id(CType* st)
 {
     char buf1[256];
-    type_to_str(buf1, sizeof(buf1), st, NULL);
+    func_type_to_str(buf1, sizeof(buf1), st, NULL);
     return(hash_into_u64(buf1, strlen(buf1)));
 }
 
@@ -5449,17 +5576,17 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
 			for (;;) {
 				/* read param name and compute offset */
 				if (l != FUNC_OLD) {
-				if ((pt.t & VT_BTYPE) == VT_VOID && tok == ')')
-					break;
-				type_decl( & pt, & ad1, & n, TYPE_DIRECT | TYPE_ABSTRACT);
-				if ((pt.t & VT_BTYPE) == VT_VOID)
-					tcc_error("parameter declared as void");
+					if ((pt.t & VT_BTYPE) == VT_VOID && tok == ')')
+						break;
+					type_decl( & pt, & ad1, & n, TYPE_DIRECT | TYPE_ABSTRACT);
+					if ((pt.t & VT_BTYPE) == VT_VOID)
+						tcc_error("parameter declared as void");
 				} else {
 					n = tok;
 					if (n < TOK_UIDENT)
 						tcc_error("identifier expected but '"
-						ANSI_FG_CYAN "%s"
-						ANSI_RESET "' found", get_tok_str(tok, 0));
+							ANSI_FG_CYAN "%s"
+							ANSI_RESET "' found", get_tok_str(tok, 0));
 
 					pt.t = VT_VOID; /* invalid type */
 					pt.ref = NULL;
@@ -5558,10 +5685,10 @@ static int post_type(CType *type, AttributeDef *ad, int storage, int td)
 		post_type(type, ad, storage, 0);
 
 		if ((type -> t & VT_BTYPE) == VT_FUNC)
-		tcc_error("declaration of an array of functions");
+			tcc_error("declaration of an array of functions");
 		if ((type -> t & VT_BTYPE) == VT_VOID ||
-		type_size(type, & unused_align) < 0)
-		tcc_error("declaration of an array of incomplete type elements");
+			type_size(type, & unused_align) < 0)
+			tcc_error("declaration of an array of incomplete type elements");
 
 		t1 |= type -> t & VT_VLA;
 
@@ -5836,7 +5963,9 @@ ST_FUNC void unary(void)
     CType type;
     Sym *s;
     AttributeDef ad;
+    char* call_name;
 
+	call_name = "";
     /* generate line number info */
     if (tcc_state->do_debug)
         tcc_debug_line(tcc_state);
@@ -6356,6 +6485,7 @@ special_math_val:
             tcc_error("identifier expected in unary op but '" ANSI_FG_CYAN "%s" ANSI_RESET "' found", get_tok_str(tok, 0));
         }
         s = sym_find(t);
+        call_name = (char*)get_tok_str(t, 0);
 #ifdef CONFIG_TCC_BCHECK
         /* HACK to undo alias definition in tccpp.c
            if function has no bound checking */
@@ -6405,9 +6535,9 @@ special_math_val:
 
         vset(&s->type, r, s->c);
         /* Point to s as backpointer (even without r&VT_SYM).
-	   Will be used by at least the x86 inline asm parser for
-	   regvars.  */
-	vtop->sym = s;
+			Will be used by at least the x86 inline asm parser for
+			regvars.  */
+		vtop->sym = s;
 
         if (r & VT_SYM) {
             vtop->c.i = 0;
@@ -6471,6 +6601,7 @@ special_math_val:
             int nb_args, ret_nregs, ret_align, regsize, variadic;
 
             /* function call  */
+            printf(" call:%s(%s) ", call_name, get_tok_str(tok, 0));
             if ((vtop->type.t & VT_BTYPE) != VT_FUNC) {
                 /* pointer test (no array accepted) */
                 if ((vtop->type.t & (VT_BTYPE | VT_ARRAY)) == VT_PTR) {
@@ -8712,10 +8843,14 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
 			if ((type.t & VT_BTYPE) == VT_FUNC) {
 
 				if (ad.a.tag == TAG_HASH_FN) {
+					int bare_identifier_v = v;
+					const char* bare_identifier = get_tok_str(bare_identifier_v, 0);
 					char tbuf1[256];
 					char vident[256];
-					type_to_str(tbuf1, sizeof(tbuf1), &type, NULL);
-					sprintf(vident, "%s:%x", get_tok_str(v, 0), type_to_id(&type));
+					func_type_to_str(tbuf1, sizeof(tbuf1), &type, NULL);
+					capy_register_signature(
+						capy_type_to_signature(&type, (char*)bare_identifier, type_to_id(&type), tbuf1));
+					sprintf(vident, "%s:%x", bare_identifier, type_to_id(&type));
 					v = tok_alloc(vident, strlen(vident))->tok;
 					/* to do:
 					 * - patch the original token to alert the compiler that this is a pattern-matched function type
@@ -8733,7 +8868,7 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym)
 						&table_ident[v - TOK_IDENT]->str[bare_ident_len+1],
 						"%x", type_to_id(&type));
 					*/
-					printf("FN DECL %s <%s>\n", get_tok_str(v, 0), tbuf1);
+					// printf("FN DECL %s%s\n", vident, tbuf1);
 				}
 
 				if ((type.t & VT_STATIC) && (l == VT_LOCAL))

@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 		typeid(MyTest), typeid(int), typeid(*m), sizeof(u32), MyTest:name[0]);
 
 	printf("scope ID: %i | eq test %i\n",
-		scopeid(0), equals:2dd7922d(1, 2));
+		scopeid(0), equals:ca0192fe(1, 2));
 
 	printf("ext: %p\n",
 		(s32)hash_into_u64("ext", 3));
