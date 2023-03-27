@@ -20,7 +20,7 @@ s32 MyTest:offset[] = { 0, 4, };*/
 enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 //u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 
-fn b8 equals(string* a, string* b)
+fn b8 equals(char* a, char* b)
 {
 	return(true);
 }
@@ -45,15 +45,14 @@ int main(int argc, char** argv) {
 		</html></>;
 	string* mystr = string_create_with_chars("hello world");
 
-
 	for(s32 i = 0; i < countof(MyTest:name); i++)
 		printf("MyTest field %i/%i = %s\n", i, countof(MyTest:name), MyTest:name[i]);
 
 	printf("hello world %i, %i, typeid=%i, typeid=%i, typeid=%i, typeid=%i %s\n", m.a, m2.a,
 		typeid(MyTest), typeid(int), typeid(*m), sizeof(u32), MyTest:name[0]);
 
-	printf("scope ID: %i | eq test %i\n",
-		scopeid(0), equals:ca0192fe(1, 2));
+	printf("eq test %i\n",
+		equals("", ""));
 
 	printf("ext: %p\n",
 		(s32)hash_into_u64("ext", 3));
