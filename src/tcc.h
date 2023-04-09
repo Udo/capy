@@ -1435,6 +1435,10 @@ static inline int toup(int c) {
 
 /* ------------ tccgen.c ------------ */
 
+void type_to_str(char *buf, int buf_size, CType *type,
+						const char *varstr);
+int is_type_compatible(CType *dt, CType *st);
+
 #define SYM_POOL_NB (8192 / sizeof(Sym))
 
 ST_DATA Sym *global_stack;

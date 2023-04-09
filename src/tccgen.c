@@ -105,7 +105,7 @@ ST_DATA const char *funcname;
 ST_DATA CType int_type, func_old_type, char_type, char_pointer_type;
 static CString initstr;
 
-static void type_to_str(char *buf, int buf_size, CType *type,
+void type_to_str(char *buf, int buf_size, CType *type,
 						const char *varstr);
 
 #if PTR_SIZE == 4
@@ -2862,7 +2862,7 @@ static void gen_opif(int op) {
    printed in the type */
 /* XXX: union */
 /* XXX: add array and function pointers */
-static void type_to_str(char *buf, int buf_size, CType *type,
+void type_to_str(char *buf, int buf_size, CType *type,
 						const char *varstr) {
 	int bt, v, t;
 	Sym *s, *sa;
@@ -4058,6 +4058,106 @@ static void cast_error(CType *st, CType *dt) {
 							   "' to '" ANSI_FG_CYAN "%s" ANSI_RESET "'");
 }
 
+int is_type_compatible(CType *dt, CType *st) {
+	CType *type1, *type2;
+	int bt_dbt, dbt, sbt, qualwarn, lvl;
+
+	dbt = dt->t & VT_BTYPE;
+	sbt = st->t & VT_BTYPE;
+	if (dt->t & VT_CONSTANT)
+		return(0);
+	bt_dbt = is_basic_type(dbt) ? VT_BTYPE : dbt;
+
+	switch (bt_dbt) {
+	case VT_VOID:
+		if (sbt != dbt)
+			return(-1);
+			//tcc_error("assignment to void expression");
+		break;
+	case VT_PTR:
+		/* special cases for pointers */
+		/* '0' can also be a pointer */
+		if (is_null_pointer(vtop))
+			break;
+		/* accept implicit pointer to integer cast with warning */
+		if (is_basic_type(sbt)) {
+			char tbuf1[256], tbuf2[256];
+			type_to_str(tbuf1, sizeof(tbuf1), st, NULL);
+			type_to_str(tbuf2, sizeof(tbuf2), dt, NULL);
+			// printf("imcompatible <%s> = <%s> without a cast\n", tbuf2, tbuf1);
+			return(-2);
+			break;
+		}
+		type1 = pointed_type(dt);
+		if (sbt == VT_PTR)
+			type2 = pointed_type(st);
+		else if (sbt == VT_FUNC)
+			type2 = st; /* a function is implicitly a function pointer */
+		else
+			goto error;
+		if (is_compatible_types(type1, type2))
+			break;
+		for (qualwarn = lvl = 0;; ++lvl) {
+			if (((type2->t & VT_CONSTANT) && !(type1->t & VT_CONSTANT)) ||
+				((type2->t & VT_VOLATILE) && !(type1->t & VT_VOLATILE)))
+				qualwarn = 1;
+			dbt = type1->t & (VT_BTYPE | VT_LONG);
+			sbt = type2->t & (VT_BTYPE | VT_LONG);
+			if (dbt != VT_PTR || sbt != VT_PTR)
+				break;
+			type1 = pointed_type(type1);
+			type2 = pointed_type(type2);
+		}
+		if (!is_compatible_unqualified_types(type1, type2)) {
+			if ((dbt == VT_VOID || sbt == VT_VOID) && lvl == 0) {
+				/* void * can match anything */
+			} else if (dbt == sbt && is_integer_btype(sbt & VT_BTYPE) &&
+					   IS_ENUM(type1->t) + IS_ENUM(type2->t) +
+							   !!((type1->t ^ type2->t) & VT_UNSIGNED) <
+						   2) {
+				/* Like GCC don't warn by default for merely changes
+				   in pointer target signedness.  Do warn for different
+				   base types, though, in particular for unsigned enums
+				   and signed int targets.  */
+			} else {
+				char tbuf1[256], tbuf2[256];
+				type_to_str(tbuf1, sizeof(tbuf1), st, NULL);
+				type_to_str(tbuf2, sizeof(tbuf2), dt, NULL);
+				return(1);
+				//tcc_warning("assignment <%s> = <%s> types are incompatible",
+				//			tbuf2, tbuf1);
+				break;
+			}
+		}
+		if (qualwarn)
+			qualwarn += 1;
+		//	tcc_warning(
+		//		"assignment discards qualifiers from pointer target type");
+		break;
+	case VT_BTYPE:
+		if (sbt == VT_PTR || sbt == VT_FUNC) {
+			char tbuf1[256], tbuf2[256];
+			type_to_str(tbuf1, sizeof(tbuf1), st, NULL);
+			type_to_str(tbuf2, sizeof(tbuf2), dt, NULL);
+			return(-3);
+			//tcc_error("cannot assign <%s> = <%s> without a cast", tbuf2, tbuf1);
+		} else if (sbt == VT_STRUCT) {
+			goto case_VT_STRUCT;
+		}
+		/* XXX: more tests */
+		break;
+	case VT_STRUCT:
+	case_VT_STRUCT:
+		if (!is_compatible_unqualified_types(dt, st)) {
+		error:
+			return(-4);
+			//cast_error(st, dt);
+		}
+		break;
+	}
+	return(2);
+}
+
 /* verify type compatibility to store vtop in 'dt' type */
 static void verify_assign_cast(CType *dt) {
 	CType *st, *type1, *type2;
@@ -4069,13 +4169,13 @@ static void verify_assign_cast(CType *dt) {
 	if (dt->t & VT_CONSTANT)
 		tcc_error("assignment of read-only location");
 	bt_dbt = is_basic_type(dbt) ? VT_BTYPE : dbt;
-
+	/*
 	{
 		char tbuf1[256];
 		type_to_str(tbuf1, sizeof(tbuf1), st, NULL);
 		printf(" [[v.%s]] ", tbuf1);
 	}
-
+	*/
 	switch (bt_dbt) {
 	case VT_VOID:
 		if (sbt != dbt)
@@ -6434,13 +6534,14 @@ tok_next:
 		s = sym_find(t);
 		call_site.funcname_tok = t;
 		call_site.funcname = (char *)get_tok_str(t, 0);
-		if(!s)
+		if(!s) // capy funcs will be 0 since their names are patched with a hash
 		{
 			capy_callsite_namelookup(&call_site);
 			if(call_site.is_capy_func)
 			{
-				s = sym_find(call_site.bucket->variants->tok);
-				printf(" | note: symbol %p deferred: '%s' in bucket %p\n", s, call_site.funcname, call_site.bucket);
+				s = sym_find(call_site.bucket->variants->tok); // probably not the final token
+				printf(" temp symbol %p '" ANSI_FG_CYAN "%s()" ANSI_RESET "' found in bucket %p\n",
+					s, call_site.funcname, call_site.bucket);
 			}
 		}
 #ifdef CONFIG_TCC_BCHECK
@@ -6620,23 +6721,31 @@ tok_next:
 				ret.c.i = 0;
 				PUT_R_RET(&ret, ret.type.t);
 			}
+
+			//if(call_site.is_capy_func)
+			//	printf(" <fn check> ");
+
 			if (tok != ')') {
 				for (;;) {
 					expr_eq(); // calls next()
-
 					if(sa)
 					{
 						CType type;
 						type = sa->type;
 						type.t &= ~VT_CONSTANT;
-						capy_callsite_addparam(&call_site, &vtop->type);
-						{
-							char tbuf1[256];
-							char tbuf2[256];
-							type_to_str(tbuf1, sizeof(tbuf1), &type, NULL);
-							type_to_str(tbuf2, sizeof(tbuf2), &vtop->type, NULL);
-							printf(" [need:%s have:%s] ", tbuf1, tbuf2);
-						}
+						if(call_site.is_capy_func) {
+							FunctionSignature* fnsig;
+							capy_callsite_addparam(&call_site, vtop, &type);
+							if(!call_site.candidates) {
+								tcc_error("no matching candidate found for %s()", call_site.funcname);
+							} else {
+								fnsig = (FunctionSignature*)call_site.candidates->val.ptr;
+								s = sym_find(fnsig->tok);
+								sa = fnsig->params[call_site.param_count-1].s;
+								call_site.vtop_placeholder->sym = s;
+								//printf(" sym%i ", fnsig->tok);
+							}
+ 						}
 					}
 
 					gfunc_param_typed(s, sa, &call_site);
@@ -6652,9 +6761,8 @@ tok_next:
 			if (sa)
 				tcc_error("too few arguments to function");
 			skip(')');
-			if(call_site.is_capy_func) {
-				tcc_error("capy fn not supported: %s", call_site.funcname);
-			}
+			//if(call_site.is_capy_func)
+			//	printf(" </fn check> ");
 			gfunc_call(nb_args);
 
 			if (ret_nregs < 0) {
@@ -8810,8 +8918,8 @@ static int decl0(int l, int is_for_loop_init, Sym *func_sym) {
 					sprintf(vident, "%s:%x", bare_identifier,
 							type_to_id(&type));
 					v = tok_alloc(vident, strlen(vident))->tok;
-					capy_register_signature(
-						capy_type_to_signature(&type, (char *)bare_identifier,
+					capy_register_fn_signature(
+						capy_create_fn_signature(&type, (char *)bare_identifier,
 											   type_to_id(&type), tbuf1, v));
 					/* to do:
 					 * - patch the original token to alert the compiler that

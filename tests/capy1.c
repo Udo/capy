@@ -22,11 +22,13 @@ enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 
 fn b8 equals(char* a, char* b)
 {
+	printf("EQUALS EXEC: CHAR* (%s, %s)", a, b);
 	return(true);
 }
 
 fn b8 equals(u32 a, s32 b)
 {
+	printf("EQUALS EXEC: U32 (%i, %i)", a, b);
 	return(a-b);
 }
 
@@ -52,7 +54,7 @@ int main(int argc, char** argv) {
 		typeid(MyTest), typeid(int), typeid(*m), sizeof(u32), MyTest:name[0]);
 
 	printf("eq test %i\n",
-		equals("", ""));
+		equals("aaaa", "bb"));
 
 	printf("ext: %p\n",
 		(s32)hash_into_u64("ext", 3));
