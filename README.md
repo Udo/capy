@@ -15,6 +15,25 @@ void do_something(MyStruct* m)
 
 You can use the `.` operator instead of `->` when accessing members of struct pointers.
 
+## Function Signature Matching
+
+```C
+// Capy function declaration starts with "fn"
+fn void equals(u8* str1, u8* str2)
+{
+	return(strcmp(str1, str2) == 0);
+}
+
+fn void equals(u8* str1, s32 i2)
+{
+	return(atoi(str1) == i2);
+}
+
+printf("Let's compare: %s == %i ? %i", "123", 123, equals("123", 123));
+```
+
+To preserve backwards compatibility to C, Capy introduces an alternative way to declare functions, starting with the `fn` keyword. Capy functions will pattern-match according to the parameter types at the call site.
+
 ## structs
 
 - The `struct` keyword can be omitted when declaring a struct variable.

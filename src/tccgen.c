@@ -6722,9 +6722,6 @@ tok_next:
 				PUT_R_RET(&ret, ret.type.t);
 			}
 
-			//if(call_site.is_capy_func)
-			//	printf(" <fn check> ");
-
 			if (tok != ')') {
 				for (;;) {
 					expr_eq(); // calls next()
@@ -6739,11 +6736,11 @@ tok_next:
 							if(!call_site.candidates) {
 								tcc_error("no matching candidate found for %s()", call_site.funcname);
 							} else {
+								// fixme: we only want to do this if the candidate actually changed
 								fnsig = (FunctionSignature*)call_site.candidates->val.ptr;
-								s = sym_find(fnsig->tok);
-								sa = fnsig->params[call_site.param_count-1].s;
-								call_site.vtop_placeholder->sym = s;
-								//printf(" sym%i ", fnsig->tok);
+								s = sym_find(fnsig->tok); // function symbol
+								sa = fnsig->params[call_site.param_count-1].s; // parameter definition
+								call_site.vtop_placeholder->sym = s; // patch "old" symbol in vtop
 							}
  						}
 					}
@@ -6761,8 +6758,7 @@ tok_next:
 			if (sa)
 				tcc_error("too few arguments to function");
 			skip(')');
-			//if(call_site.is_capy_func)
-			//	printf(" </fn check> ");
+
 			gfunc_call(nb_args);
 
 			if (ret_nregs < 0) {

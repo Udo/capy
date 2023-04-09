@@ -14,12 +14,12 @@ DONE
 	* #library "LIBRARY_PATH_TO_ADD" (same as the -L cmd line switch)
 	* #link "LINK_LIBRARY_FILE" (same as the -l cmd line switch)
 *	Makefile now outputs capy executable
+*	function signature matching
+*	type reflection at runtime
 
 OPEN
 *	capy strings
 *	string interpolation
-*	function signature matching
-*	type reflection at runtime
 *	polymorphism
 *	compile-time code execution / metaprogramming
 *	defer things for when symbols go out of scope?

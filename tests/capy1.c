@@ -22,13 +22,13 @@ enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 
 fn b8 equals(char* a, char* b)
 {
-	printf("EQUALS EXEC: CHAR* (%s, %s)", a, b);
+	printf("EQUALS EXEC: CHAR* (%s, %s)\n", a, b);
 	return(true);
 }
 
 fn b8 equals(u32 a, s32 b)
 {
-	printf("EQUALS EXEC: U32 (%i, %i)", a, b);
+	printf("EQUALS EXEC: U32 (%i, %i)\n", a, b);
 	return(a-b);
 }
 
