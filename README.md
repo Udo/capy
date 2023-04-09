@@ -41,13 +41,13 @@ To preserve backwards compatibility to C, Capy introduces an alternative way to 
 
 ## Compiler directives
 
-- `#product`: specifies the executable filename (e.g. `#product "compiled_file_name"`)
+- `#product`: specifies the executable filename (e.g. `#product "compiled_file_name"`). In general, you should not need a build system when writing software with Capy. Being based on TCC, the compiler is fast enough for most projects to compile in a single pass within miliseconds.
 - `#link`: link a library file, equivalent to `-l` command line switch (e.g. `#link "SDL2"`)
 - `#library`: library path, equivalent to `-L` command line switch (e.g. `#library "/usr/lib/x86_64-linux-gnu/pulseaudio/"`)
 
 ## enums
 
-- runtime information: enums tagged with `[@ext]` generate arrays called `MYENUM:name[]` and `MYENUM:value[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
+- runtime information: enums generate arrays called `MYENUM:name[]` and `MYENUM:value[]` (where MYENUM is the name of the enum), and these contain the names and values of all enum constants as a string available at runtime.
 - *iota counter*: you can use the Go-like counter `iota` in enum and struct definitions (like `__COUNTER__` but more useful). The counter is reset to 0 when a new scope or enum definition begins.
 
 ## Minor things

@@ -17,7 +17,7 @@ struct [@ext] MyTest {
 s32 MyTest:typeid[] = { 123, 234, };
 s32 MyTest:offset[] = { 0, 4, };*/
 
-enum [@ext] week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
+enum week {Mon = iota, Tue = iota, Wed = iota, Thur, Fri, Sat, Sun};
 //u8* week:names[] = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 
 fn b8 equals(char* a, char* b)
@@ -31,6 +31,10 @@ fn b8 equals(u32 a, s32 b)
 	printf("EQUALS EXEC: U32 (%i, %i)\n", a, b);
 	return(a-b);
 }
+
+u8* _G_fpos_t:name[] = { "__pos", "__state",  };
+u8* _G_fpos64_t:name[] = { "__pos", "__state",  };
+u8* _IO_FILE:name[] = { "_flags", "_IO_read_ptr", "_IO_read_end", "_IO_read_base", "_IO_write_base", "_IO_write_ptr", "_IO_write_end", "_IO_buf_base", "_IO_buf_end", "_IO_save_base", "_IO_backup_base", "_IO_save_end", "_markers", "_chain", "_fileno", "_flags2", "_old_offset", "_cur_column", "_vtable_offset", "_shortbuf", "_lock", "_offset", "_codecvt", "_wide_data", "_freeres_list", "_freeres_buf", "__pad5", "_mode", "_unused2",  };
 
 int main(int argc, char** argv) {
 

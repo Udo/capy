@@ -4979,7 +4979,7 @@ static void struct_decl(CType *type, int u) {
 	// next();
 	parse_attribute(&ad);
 
-	extended_enum = (ad.a.tag == TAG_HASH_EXT);
+	extended_enum = (ad.a.tag == TAG_HASH_EXT) || (u == VT_ENUM);
 
 	if (tok != '{') {
 		v = tok;
@@ -5001,9 +5001,10 @@ static void struct_decl(CType *type, int u) {
 		}
 	} else {
 		if (extended_enum)
-			tcc_error("extended types cannot be anonymous: '" ANSI_FG_CYAN
-					  "%s" ANSI_RESET "'",
-					  get_tok_str(v, NULL));
+			extended_enum = false;
+			//tcc_error("extended types cannot be anonymous: '" ANSI_FG_CYAN
+			//		  "%s" ANSI_RESET "'",
+			//		  get_tok_str(v, NULL));
 		v = anon_sym++;
 	}
 	/* Record the original enum/struct/union token.	*/
