@@ -158,7 +158,7 @@ struct list *hashmap_hashkeys(struct hashmap *h);
 
 void string_init(struct string *s) {
 	s->capacity = string_initial_capacity;
-	s->bytes = s->backing_store = mem_calloc(1, s->capacity + 1);
+	s->bytes = s->backing_store = mem_calloc(s->capacity + 1, 1);
 }
 
 struct string *string_create() {

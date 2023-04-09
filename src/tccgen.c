@@ -1103,8 +1103,8 @@ ST_INLN Sym *sym_find(int v) {
 	v -= TOK_IDENT;
 	if ((unsigned)v >= (unsigned)(tok_ident - TOK_IDENT))
 		return NULL;
-	if(capy_is_capy_func(table_ident[v]->str))
-		printf(" [%b:sym_find:%s] \n", capy_is_capy_func(table_ident[v]->str), table_ident[v]->str);
+	//if(capy_is_capy_func(table_ident[v]->str))
+	//	printf(" [%b:sym_find:%s] \n", capy_is_capy_func(table_ident[v]->str), table_ident[v]->str);
 	return table_ident[v]->sym_identifier;
 }
 
@@ -5280,9 +5280,10 @@ do_decl:
 		}
 		struct_decl_level--;
 		if (struct_decl_level == 0 && struct_decl_codegen != 0) {
+			string_append_chars(struct_decl_codegen, " "); // probably doesn't matter, but reserve space for CH_EOB
 			use_temp_buffer(struct_decl_codegen->bytes,
 							struct_decl_codegen->bytes +
-								struct_decl_codegen->length);
+								struct_decl_codegen->length -1);
 			printf("Runtime info: %s \n", struct_decl_codegen->bytes);
 			struct_decl_codegen = 0;
 		}

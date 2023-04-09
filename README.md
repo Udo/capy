@@ -66,4 +66,6 @@ To preserve backwards compatibility to C, Capy introduces an alternative way to 
 
 ## Compile
 
+Prerequisites: you need to install TCC on the system before using capy, since Capy is using system-wide TCC libraries.
+
 Execute `./configure` before compiling for the first time. Afterwards, build the executable by using the `./build` script.
