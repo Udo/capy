@@ -69,3 +69,7 @@ To preserve backwards compatibility to C, Capy introduces an alternative way to 
 Prerequisites: you need to install TCC on the system before using capy, since Capy is using system-wide TCC libraries.
 
 Execute `./configure` before compiling for the first time. Afterwards, build the executable by using the `./build` script.
+
+Build and run programs from the `tests/` folder by running `./test NAME` where NAME is the name of the file in the tests folder (omit the file extension).
+
+Run programs from the `tests/` folder directly from memory by running `./run NAME`.
