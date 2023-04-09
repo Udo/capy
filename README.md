@@ -21,12 +21,12 @@ You can use the `.` operator instead of `->` when accessing members of struct po
 // Capy function declaration starts with "fn"
 fn bool equals(u8* str1, u8* str2)
 {
-	return(strcmp(str1, str2) == 0);
+	return strcmp(str1, str2) == 0;
 }
 
 fn bool equals(u8* str1, s32 i2)
 {
-	return(atoi(str1) == i2);
+	return atoi(str1) == i2;
 }
 
 printf("Let's compare: %s == %i ? %i", "123", 123, equals("123", 123));
