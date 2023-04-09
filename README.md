@@ -19,12 +19,12 @@ You can use the `.` operator instead of `->` when accessing members of struct po
 
 ```C
 // Capy function declaration starts with "fn"
-fn void equals(u8* str1, u8* str2)
+fn bool equals(u8* str1, u8* str2)
 {
 	return(strcmp(str1, str2) == 0);
 }
 
-fn void equals(u8* str1, s32 i2)
+fn bool equals(u8* str1, s32 i2)
 {
 	return(atoi(str1) == i2);
 }
