@@ -1762,6 +1762,23 @@ pragma_err:
 	return;
 }
 
+static const char *skip_path_arg(const char **str) {
+	const char *s1 = *str;
+	const char *s2 = strchr(s1, ',');
+	*str = s2 ? s2++ : (s2 = s1 + strlen(s1));
+	return s2;
+}
+
+static void process_path_arg(char **pp, const char *s, int sep) {
+	const char *q = s;
+	char *p = *pp;
+	int l = 0;
+	if (p && sep)
+		p[l = strlen(p)] = sep, ++l;
+	skip_linker_arg(&q);
+	pstrncpy(l + (*pp = tcc_realloc(p, q - s + l + 1)), s, q - s);
+}
+
 /* is_bof is true if first non space token at beginning of file */
 ST_FUNC void preprocess(int is_bof) {
 	TCCState *s1 = tcc_state;
@@ -2046,6 +2063,7 @@ redo:
 		break;
 	case TOK_LINK:
 	case TOK_PRODUCT:
+	case TOK_SOPATH:
 	case TOK_LIBRARY: {
 		char *lp;
 		ch = file->buf_ptr[0];
@@ -2074,6 +2092,8 @@ redo:
 			s1->build_product_filename = lp;
 		else if (tok == TOK_LIBRARY)
 			tcc_add_library_path(s1, lp);
+		else if (tok == TOK_SOPATH)
+			process_path_arg(&s1->rpath, lp, ':');
 		else if (tok == TOK_LINK) {
 			int filetype;
 			struct filespec *f;

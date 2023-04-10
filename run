@@ -2,4 +2,4 @@
 
 SRCFILE="tests/$1.c"
 
-bin/capy -b -run "$SRCFILE"
+bin/capy -static -b -run "$SRCFILE"

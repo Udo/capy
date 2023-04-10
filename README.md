@@ -44,6 +44,7 @@ To preserve backwards compatibility to C, Capy introduces an alternative way to 
 - `#product`: specifies the executable filename (e.g. `#product "compiled_file_name"`). In general, you should not need a build system when writing software with Capy. Being based on TCC, the compiler is fast enough for most projects to compile in a single pass within miliseconds.
 - `#link`: link a library file, equivalent to `-l` command line switch (e.g. `#link "SDL2"`)
 - `#library`: library path, equivalent to `-L` command line switch (e.g. `#library "/usr/lib/x86_64-linux-gnu/pulseaudio/"`)
+- `#sopath`: search path for shared objects at runtime
 
 ## enums
 

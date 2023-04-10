@@ -1855,7 +1855,7 @@ PUB_FUNC int tcc_parse_args(TCCState *s, int *pargc, char ***pargv,
 #endif
 #ifdef CONFIG_TCC_BCHECK
 		case TCC_OPTION_b:
-			s->do_bounds_check = 1;
+			s->do_bounds_check = 0;
 			s->do_backtrace = 1;
 			s->do_debug = 1;
 			break;
