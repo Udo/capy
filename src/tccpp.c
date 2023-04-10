@@ -1775,7 +1775,7 @@ static void process_path_arg(char **pp, const char *s, int sep) {
 	int l = 0;
 	if (p && sep)
 		p[l = strlen(p)] = sep, ++l;
-	skip_linker_arg(&q);
+	skip_path_arg(&q);
 	pstrncpy(l + (*pp = tcc_realloc(p, q - s + l + 1)), s, q - s);
 }
 
