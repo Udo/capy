@@ -155,6 +155,8 @@ static struct scope {
 	} cl;
 	int *bsym, *csym;
 	Sym *lstk, *llstk;
+	int using_tokens[CAPY_MAX_USING];
+	int using_count;
 	int id;
 } *cur_scope, *loop_scope, *root_scope;
 
@@ -6015,6 +6017,7 @@ static void parse_builtin_params(int nc, const char *args) {
 
 ST_FUNC void unary(void) {
 	int n, t, align, size, r, sizeof_caller;
+	int maybe_using_shortcut = 0;
 	CType type;
 	Sym *s;
 	AttributeDef ad;
@@ -6527,7 +6530,6 @@ tok_next:
 	default:
 	tok_identifier:
 		t = tok;
-		next();
 		if (t < TOK_UIDENT) {
 			tcc_error("identifier expected in unary op but '" ANSI_FG_CYAN
 					  "%s" ANSI_RESET "' found",
@@ -6545,7 +6547,25 @@ tok_next:
 				printf(" temp symbol %p '" ANSI_FG_CYAN "%s()" ANSI_RESET "' found in bucket %p\n",
 					s, call_site.funcname, call_site.bucket);
 			}
+			else
+			{
+				Sym* u;
+				int cumofs;
+				if(cur_scope->using_count) {
+					s = sym_find(cur_scope->using_tokens[0]);
+					u = find_field(&s->type, t, &cumofs);
+					if(u) {
+						printf("using %s.%s\n",
+							get_tok_str(cur_scope->using_tokens[0], 0), get_tok_str(t, 0));
+						maybe_using_shortcut = true;
+					} else {
+						s = 0;
+					}
+				}
+			}
 		}
+		if(!maybe_using_shortcut)
+			next();
 #ifdef CONFIG_TCC_BCHECK
 		/* HACK to undo alias definition in tccpp.c
 		   if function has no bound checking */
@@ -6614,7 +6634,7 @@ tok_next:
 		if (tok == TOK_INC || tok == TOK_DEC) {
 			inc(1, tok);
 			next();
-		} else if (tok == '.' || tok == TOK_ARROW || tok == TOK_CDOUBLE) {
+		} else if (tok == '.' || tok == TOK_ARROW || tok == TOK_CDOUBLE || maybe_using_shortcut) {
 			int qualifiers, cumofs = 0;
 			/* field */
 			if (tok == TOK_ARROW)
@@ -6628,7 +6648,10 @@ tok_next:
 			// expect("struct or union");
 			if (tok == TOK_CDOUBLE)
 				expect("field name");
-			next();
+			if(maybe_using_shortcut)
+				maybe_using_shortcut = false;
+			else
+				next();
 			if (tok == TOK_CINT || tok == TOK_CUINT)
 				expect("field name");
 			s = find_field(&vtop->type, tok, &cumofs);
@@ -7633,6 +7656,30 @@ again:
 		if (tok != '}' || local_scope != 1)
 			rsym = gjmp(rsym);
 		CODE_OFF();
+
+	} else if (t == TOK_USING) {
+		while(tok != ';') {
+			if(tok >= TOK_IDENT) {
+				cur_scope->using_tokens[cur_scope->using_count++] = tok;
+				printf("USING (ignored for now) %s t:%i\n", get_tok_str(tok, 0), cur_scope->using_count);
+			}
+			next();
+
+			//gexpr();
+
+			/*
+			test_lvalue();
+			next();
+			if (t == '=') {
+				expr_eq();
+			} else {
+				vdup();
+				expr_eq();
+				gen_op(TOK_ASSIGN_OP(t));
+			}
+			vstore();*/
+		}
+		skip(';');
 
 	} else if (t == TOK_BREAK) {
 		/* compute jump */

@@ -1,5 +1,11 @@
 # Capy, a C-like
 
+Rationale for this existing
+
+- can use existing C code (especially libraries as is)
+- no need for a build system, the code contains everything needed to build itself
+- some quality-of-life improvements over normal C, such as better handling of structs, pointers, enums, adding runtime type information, generally reduced verbosity
+
 ## C compatibility
 
 Relatively normal C code should compile without changes.
@@ -38,6 +44,7 @@ To preserve backwards compatibility to C, Capy introduces an alternative way to 
 
 - The `struct` keyword can be omitted when declaring a struct variable.
 - runtime information: structs tagged with `[@ext]` generate arrays called `MYSTRUCT:name[]` (where MYSTRUCT is the name of the struct), and these contain the names of all members as a string available at runtime.
+- The `using STRUCT_IDENTIFIER;` brings the fields of the struct variable `STRUCT_IDENTIFIER` into local scope (for now works only for one struct at a time, no expressions, no pointers).
 
 ## Compiler directives
 

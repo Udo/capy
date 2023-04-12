@@ -36,7 +36,9 @@ int main(int argc, char** argv) {
 
 	MyTest* m =
 		malloc(sizeof(MyTest));
-	m.a = 123;
+	using ms;
+	a = 123;
+	f = 10.1;
 
 	*m = ms;
 

@@ -6,6 +6,7 @@ struct hashmap *capy_signatures = 0;
 
 #define CAPY_IDENT_BUFSIZE 1024 * 32
 #define CAPY_MAX_PARAMS 16
+#define CAPY_MAX_USING 16
 
 u8 *capy_create_identifier(char *s) {
 	u8 *result;
