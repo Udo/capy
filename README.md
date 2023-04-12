@@ -9,7 +9,7 @@ Rationale for this existing
 
 ## C compatibility
 
-Relatively normal C code should compile without changes.
+This project is based on the TCC compiler. Relatively normal C code should compile without changes.
 
 ## -> Operator optional
 
