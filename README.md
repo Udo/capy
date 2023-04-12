@@ -5,7 +5,7 @@ Rationale for this existing
 - can use existing C code (especially libraries as is)
 - no need for a build system, the code contains everything needed to build itself
 - geared towards super fast, single unit builds
-- some quality-of-life improvements over normal C, such as better handling of structs, pointers, enums, adding runtime type information, generally reduced verbosity
+- some quality-of-life improvements over normal C, such as better handling of structs, pointers, enums, adding runtime type information, generally reduced verbosity, C++-like function signature matching, operator overloading, and general compile-time abstraction that have no runtime overhead
 
 ## C compatibility
 
