@@ -1139,7 +1139,7 @@ ST_FUNC Sym *sym_push(int v, CType *type, int r, int c) {
 		if (v & SYM_STRUCT) {
 			ps = &ts->sym_struct;
 		} else {
-			// printf(" ident[%s : %p] ", get_tok_str(v, 0), type->t);
+			//printf(" ident[%s : %p] ", get_tok_str(v, 0), type->t);
 			ps = &ts->sym_identifier;
 		}
 		s->prev_tok = *ps;
