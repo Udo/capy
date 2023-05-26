@@ -2994,7 +2994,7 @@ void type_to_str(char *buf, int buf_size, CType *type,
 no_var:;
 }
 
-// fixme this is just type_to_str with the return type removed
+// human and machine-readable simplified signature string
 static void func_type_to_str(char *buf, int buf_size, CType *type,
 							 const char *varstr) {
 	int bt, v, t;
@@ -3006,7 +3006,7 @@ static void func_type_to_str(char *buf, int buf_size, CType *type,
 	bt = t & VT_BTYPE;
 	buf[0] = '\0';
 
-	if (t & VT_EXTERN)
+	/*if (t & VT_EXTERN)
 		pstrcat(buf, buf_size, "extern ");
 	if (t & VT_STATIC)
 		pstrcat(buf, buf_size, "static ");
@@ -3017,7 +3017,7 @@ static void func_type_to_str(char *buf, int buf_size, CType *type,
 	if (t & VT_VOLATILE)
 		pstrcat(buf, buf_size, "volatile ");
 	if (t & VT_CONSTANT)
-		pstrcat(buf, buf_size, "const ");
+		pstrcat(buf, buf_size, "const ");*/
 
 	buf_size -= strlen(buf);
 	buf += strlen(buf);
@@ -3075,27 +3075,30 @@ static void func_type_to_str(char *buf, int buf_size, CType *type,
 			pstrcat(buf, buf_size, get_tok_str(v, NULL));
 		break;
 	case VT_FUNC:
+		s32 arg_count = 0;
 		s = type->ref;
-		// buf1[0]=0;
+		buf1[0] = 0;
 		if (varstr && '*' == *varstr) {
-			pstrcat(buf, buf_size, "(");
-			pstrcat(buf, buf_size, varstr);
-			pstrcat(buf, buf_size, ")");
+			pstrcat(buf1, sizeof(buf1), ":");
+			pstrcat(buf1, sizeof(buf1), varstr);
+			//pstrcat(buf1, sizeof(buf1), ")");
 		}
-		pstrcat(buf, buf_size, "(");
+		pstrcat(buf1, buf_size, ":");
 		sa = s->next;
 		while (sa != NULL) {
 			char buf2[256];
-			type_to_str(buf2, sizeof(buf2), &sa->type, NULL);
-			pstrcat(buf, buf_size, buf2);
+			arg_count++;
+			func_type_to_str(buf2, sizeof(buf2), &sa->type, NULL);
+			pstrcat(buf1, sizeof(buf1), buf2);
 			sa = sa->next;
 			if (sa)
-				pstrcat(buf, buf_size, ", ");
+				pstrcat(buf1, sizeof(buf1), ":");
 		}
 		if (s->f.func_type == FUNC_ELLIPSIS)
-			pstrcat(buf, buf_size, ", ...");
-		pstrcat(buf, buf_size, ")");
-		// type_to_str(buf, buf_size, &s->type, buf1);
+			pstrcat(buf1, sizeof(buf1), ":xxx");
+		if(arg_count == 0)
+			pstrcat(buf1, sizeof(buf1), "nil");
+		func_type_to_str(buf, buf_size, &s->type, buf1);
 		goto no_var;
 	case VT_PTR:
 		s = type->ref;
@@ -3105,164 +3108,31 @@ static void func_type_to_str(char *buf, int buf_size, CType *type,
 			else
 				snprintf(buf1, sizeof(buf1), "%s[%d]", varstr ? varstr : "",
 						 s->c);
-			type_to_str(buf, buf_size, &s->type, buf1);
+			func_type_to_str(buf, buf_size, &s->type, buf1);
 			goto no_var;
 		}
-		pstrcpy(buf1, sizeof(buf1), "*");
-		if (t & VT_CONSTANT)
+		pstrcpy(buf1, sizeof(buf1), "_ptr"); // *
+		/*if (t & VT_CONSTANT)
 			pstrcat(buf1, buf_size, "const ");
 		if (t & VT_VOLATILE)
-			pstrcat(buf1, buf_size, "volatile ");
+			pstrcat(buf1, buf_size, "volatile ");*/
 		if (varstr)
 			pstrcat(buf1, sizeof(buf1), varstr);
-		type_to_str(buf, buf_size, &s->type, buf1);
+		func_type_to_str(buf, buf_size, &s->type, buf1);
 		goto no_var;
 	}
 	if (varstr) {
-		pstrcat(buf, buf_size, " ");
+		//pstrcat(buf, buf_size, ":3");
 		pstrcat(buf, buf_size, varstr);
 	}
 no_var:;
 }
 
-/*
-static void type_to_str_old(char *buf, int buf_size,
-		 CType *type, const char *varstr)
-{
-	int bt, v, t;
-	Sym *s, *sa;
-	char buf1[256];
-	const char *tstr;
-
-	t = type->t;
-	bt = t & VT_BTYPE;
-	buf[0] = '\0';
-
-	if (t & VT_EXTERN)
-	pstrcat(buf, buf_size, "extern ");
-	if (t & VT_STATIC)
-	pstrcat(buf, buf_size, "static ");
-	if (t & VT_TYPEDEF)
-	pstrcat(buf, buf_size, "typedef ");
-	if (t & VT_INLINE)
-	pstrcat(buf, buf_size, "inline ");
-	if (t & VT_VOLATILE)
-	pstrcat(buf, buf_size, "volatile ");
-	if (t & VT_CONSTANT)
-	pstrcat(buf, buf_size, "const ");
-
-	if (((t & VT_DEFSIGN) && bt == VT_BYTE)
-	|| ((t & VT_UNSIGNED)
-		&& (bt == VT_SHORT || bt == VT_INT || bt == VT_LLONG)
-		&& !IS_ENUM(t)
-		))
-	pstrcat(buf, buf_size, (t & VT_UNSIGNED) ? "unsigned " : "signed ");
-
-	buf_size -= strlen(buf);
-	buf += strlen(buf);
-
-	switch(bt) {
-	case VT_VOID:
-	tstr = "void";
-	goto add_tstr;
-	case VT_BOOL:
-	tstr = "_Bool";
-	goto add_tstr;
-	case VT_BYTE:
-	tstr = "char";
-	goto add_tstr;
-	case VT_SHORT:
-	tstr = "short";
-	goto add_tstr;
-	case VT_INT:
-	tstr = "int";
-	goto maybe_long;
-	case VT_LLONG:
-	tstr = "long long";
-	maybe_long:
-	if (t & VT_LONG)
-		tstr = "long";
-	if (!IS_ENUM(t))
-		goto add_tstr;
-	tstr = "enum ";
-	goto tstruct;
-	case VT_FLOAT:
-	tstr = "float";
-	goto add_tstr;
-	case VT_DOUBLE:
-	tstr = "double";
-	if (!(t & VT_LONG))
-		goto add_tstr;
-	case VT_LDOUBLE:
-	tstr = "long double";
-	add_tstr:
-	pstrcat(buf, buf_size, tstr);
-	break;
-	case VT_STRUCT:
-	tstr = "struct ";
-	if (IS_UNION(t))
-		tstr = "union ";
-	tstruct:
-	pstrcat(buf, buf_size, tstr);
-	v = type->ref->v & ~SYM_STRUCT;
-	if (v >= SYM_FIRST_ANOM)
-		pstrcat(buf, buf_size, "<anonymous>");
-	else
-		pstrcat(buf, buf_size, get_tok_str(v, NULL));
-	break;
-	case VT_FUNC:
-	s = type->ref;
-	buf1[0]=0;
-	if (varstr && '*' == *varstr) {
-		pstrcat(buf1, sizeof(buf1), "(");
-		pstrcat(buf1, sizeof(buf1), varstr);
-		pstrcat(buf1, sizeof(buf1), ")");
-	}
-	pstrcat(buf1, buf_size, "(");
-	sa = s->next;
-	while (sa != NULL) {
-		char buf2[256];
-		type_to_str(buf2, sizeof(buf2), &sa->type, NULL);
-		pstrcat(buf1, sizeof(buf1), buf2);
-		sa = sa->next;
-		if (sa)
-		pstrcat(buf1, sizeof(buf1), ", ");
-	}
-	if (s->f.func_type == FUNC_ELLIPSIS)
-		pstrcat(buf1, sizeof(buf1), ", ...");
-	pstrcat(buf1, sizeof(buf1), ")");
-	type_to_str(buf, buf_size, &s->type, buf1);
-	goto no_var;
-	case VT_PTR:
-	s = type->ref;
-	if (t & VT_ARRAY) {
-		if (varstr && '*' == *varstr)
-		snprintf(buf1, sizeof(buf1), "(%s)[%d]", varstr, s->c);
-		else
-		snprintf(buf1, sizeof(buf1), "%s[%d]", varstr ? varstr : "",
-s->c); type_to_str(buf, buf_size, &s->type, buf1); goto no_var;
-	}
-	pstrcpy(buf1, sizeof(buf1), "*");
-	if (t & VT_CONSTANT)
-		pstrcat(buf1, buf_size, "const ");
-	if (t & VT_VOLATILE)
-		pstrcat(buf1, buf_size, "volatile ");
-	if (varstr)
-		pstrcat(buf1, sizeof(buf1), varstr);
-	type_to_str(buf, buf_size, &s->type, buf1);
-	goto no_var;
-	}
-	if (varstr) {
-	pstrcat(buf, buf_size, " ");
-	pstrcat(buf, buf_size, varstr);
-	}
- no_var: ;
-}
-*/
 
 int type_to_id(CType *st) {
 	char buf1[256];
 	func_type_to_str(buf1, sizeof(buf1), st, NULL);
+	//printf(" (%s) ", buf1);
 	return (hash_into_u64(buf1, strlen(buf1)));
 }
 

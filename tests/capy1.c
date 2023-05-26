@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../src/capy.h"
+#include "../use/dtree.h"
 #product "bin/test_capy1"
 
 #define fn	[@capyfn]
@@ -26,6 +27,16 @@ fn b8 equals(u32 a, s32 b)
 {
 	printf("EQUALS EXEC: U32 (%i, %i)\n", a, b);
 	return(a-b);
+}
+
+fn u8 wonk()
+{
+	return 0;
+}
+
+fn u32 wonk()
+{
+	return 0;
 }
 
 int main(int argc, char** argv) {
@@ -69,6 +80,8 @@ int main(int argc, char** argv) {
 
 	week day = Wed;
     printf("Enum test: %d = %s = %i\n", day, week:name[day], week:value[day]);
+
+    dtree* d1 = dtree:create();
 
     return 0;
 }
