@@ -10,6 +10,7 @@ struct token
 
 char* tokenizer_test()
 {
+	print_stack_trace();
 	return "LET'S GO";
 }
 

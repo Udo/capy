@@ -8,7 +8,7 @@ PROJECT_ROOT="$(pwd)"  # Root path to strip from include guards
 
 # Build flags (override via env vars)
 CFLAGS="${CFLAGS:--O2 -Wall -Wextra}"
-LDFLAGS="${LDFLAGS:-}"
+LDFLAGS="${LDFLAGS:-} -ldl"
 
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
