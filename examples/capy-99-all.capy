@@ -1,0 +1,107 @@
+@bin bin/capyx_app
+
+/* what we want
+	- syntax is Python-like, but otherwise it's close to C and strongly typed
+	- no external build system, source code describes build
+	- function pattern matching
+	- lexical scoping
+	- generic function templates
+	- safe string type
+	- string literals interspersed with dynamic values = template system
+	- multiple return values
+	- C/C++ library interop
+*/
+
+@use "std/io" as io
+
+new arr : array(u32) = [1, 2, 3, 4]
+
+new direction := enum
+	north = 1 // if no @default is set, the first option becomes default
+	south = 2
+	east = 3
+	west = 4
+
+new message := struct
+	some_var : u8 // these are valid for all variants
+	another_var : u32
+	as none @default: // if no @default is set, the first 'as' variant becomes default
+		empty
+	as quit:
+		exit_code : u32
+	as color:
+		r, g, b : u8
+		alpha : u8
+	as text:
+		text : string
+
+new m1 : message.color = { r = 0, g = 100, b = 0, alpha = 255 }
+
+set_variant(m1, message.none);
+
+new handle_message(m : message)
+	when m:
+		none:
+			print("It's nothing")
+		quit:
+			print("It's a quit message")
+		color:
+			print("It's a color")
+		Any as T:
+			print("It's a " typename(T))
+	print('And some common code here')
+
+new factorial(n : Any as T) T
+	if n == 0:
+		return 1
+	if n > 0:
+		return n * factorial(n - 1)
+
+// actually the function syntax above is syntactic sugar for
+new ofactorial : function (n : u32) u32 =
+	if n == 0:
+		return 1
+	if n > 0:
+		return n * ofactorial(n - 1)
+
+// function that takes nothing and returns nothing
+new nuthin : function () =
+	print('About nothing')
+
+// polymorphic function, takes any parameter type as long as both
+// params have the same type and have a .value member
+new swap_val(a : Any as T, b : T)
+	new tmp := a.value // infers the type of a.value
+	a.value = b.value
+	b.value = tmp
+
+// Function with multiple return values: quotient and remainder
+// this will fail if a and b are not the same type or if one of
+// the operations performed on them in the function is not supported
+new divmod(a : Any as T, b : T) (T, T)
+	new q : T = a / b
+	new r : T = a % b
+	return (q, r)
+
+// C/C++ interop: external C function binding to the math library
+@link "libm"
+new c_sqrt(x : f64) f64 from "libm"
+
+// dynamic binding
+@lib "mylib.so" as "mx"
+new my_ext_func(x : f64) f64 from "mx"
+
+// Lexical scoping demo with swap in an inner block
+new x : u32 = 42
+new y : u32 = 7
+block
+	new a : ^u32 = ^x
+	new b := ^y
+	swap(a, b)
+	print("Swapped: x = " x ", y = " y)
+
+// Using multiple return values from divmod
+new (q, r) = divmod(17, 4)
+print("17 divided by 4 gives quotient " q " and remainder " r)
+
+print(<div>Hello from a JSX/PHP-style component <?= i2 ?></div>)
