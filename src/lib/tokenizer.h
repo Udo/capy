@@ -16,6 +16,11 @@ typedef enum {
  TOK_QLITERAL = 'Q', 
  TOK_UNKNOWN = '?',
 } token_type;
+typedef struct {
+ char* op;
+ int prec;
+} operator_table_def;
+extern operator_table_def operator_table[];
 typedef struct token token;
 struct token {
  u8 type;
@@ -30,6 +35,7 @@ struct tokenizer_state {
  string* src;
  string* filename;
 };
+int is_operator_prefix(const char* candidate);
 u8 tok_get_char_type(u8 c);
 token* new_token(u8 ctype, token* prev, u64 pos);
 void tok_print_repeat(char* str, u32 times);

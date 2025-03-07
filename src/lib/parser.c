@@ -236,27 +236,12 @@ bool is_end_of_expression(parser_state* p)
 		match_token(p, 0, TOK_PUNCT, ",");
 }
 
-typedef struct {
-    char* op;
-    int prec;
-} op_prec_t;
-
-op_prec_t op_precs[] = {
-    {"=",   5},
-    {":=",  5},
-    {"==",  10},
-    {"+",   20},
-    {"-",   20},
-    {"*",   30},
-    {"/",   30},
-    {0,  0} 
-};
-
 int get_precedence(token* tok) {
     if (!tok || tok->type != TOK_PUNCT) return 0;
-    for (int i = 0; op_precs[i].op != NULL; i++) {
-        if (string_equals_cstr(tok->content, op_precs[i].op, false))
-            return op_precs[i].prec;
+    for (int i = 0; operator_table[i].op != NULL; i++) 
+	{
+        if (string_equals_cstr(tok->content, operator_table[i].op, false))
+            return operator_table[i].prec;
     }
     return 0;
 }
@@ -293,8 +278,9 @@ ast_node* parse_expression_rbp(parser_state* p, int rbp) {
         }
         else if (string_equals_cstr(tok->content, "-", false) ||
                  string_equals_cstr(tok->content, "+", false)) {
-            // Unary operator: use a high binding power
+            // Unary operator: use a high binding power, fixme?
             ast_node* node = parser_create_node(AST_OP_UNARY, tok);
+			node->identifier = tok->content;
             node->left = parse_expression_rbp(p, 100);
             left = node;
         }
@@ -312,8 +298,6 @@ ast_node* parse_expression_rbp(parser_state* p, int rbp) {
         
         // Function call: if the next token is '(' then it's a call.
         if (next->type == TOK_PUNCT && string_equals_cstr(next->content, "(", false)) {
-            // Assuming function calls bind very tightly.
-            if (rbp >= 100) break;
             consume_token(p);  // consume '('
             ast_node* call = parser_create_node(AST_CALL, left->t);
             call->left = left;
@@ -350,7 +334,6 @@ ast_node* parse_expression_rbp(parser_state* p, int rbp) {
         if (prec <= rbp)
             break;
         
-        // Infix operator.
         consume_token(p);
         ast_node* op_node = parser_create_node(AST_OP_BINARY, next);
         op_node->left = left;
@@ -362,7 +345,6 @@ ast_node* parse_expression_rbp(parser_state* p, int rbp) {
     return left;
 }
 
-// Wrapper function that starts parsing with a binding power of 0.
 ast_node* parse_expression(parser_state* p) {
     ast_node* expr = parse_expression_rbp(p, 0);
     return expr;

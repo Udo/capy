@@ -63,11 +63,6 @@ ast_node* parse_call(parser_state* p);
 ast_node* parse_statement(parser_state* p);
 void parse_block(parser_state* p);
 bool is_end_of_expression(parser_state* p);
-typedef struct {
- char* op;
- int prec;
-} op_prec_t;
-extern op_prec_t op_precs[];
 int get_precedence(token* tok);
 ast_node* parse_expression_rbp(parser_state* p, int rbp);
 ast_node* parse_expression(parser_state* p);

@@ -1,4 +1,3 @@
 print("Hello world")
-print(1+2*3/fac(1))
-print(-1+2*(1+100))
-print(funca(123+45)*funcb(678+90))
+print(-funca(123+45)*funcb(678+90))
+a=b+2
