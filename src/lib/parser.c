@@ -1,6 +1,8 @@
 #include "types.h"
 #include "tokenizer.h"
 
+#define CLOSING_BRACE "}" 
+
 typedef enum {
 	AST_DIRECTIVE,
     AST_KEYWORD,
@@ -116,7 +118,8 @@ void debug_ast_node(ast_node* node, int indent, symbol_table* st) {
 		printf("Type:\n");
 		debug_ast_node(node->type, indent + 2, node->symbol_table);
 	}
-	if (node->symbol_table && st != node->symbol_table) {
+	if (node->symbol_table && st != node->symbol_table && 
+		(node->node_type == AST_MODULE || node->node_type == AST_BLOCK)) {
 		for (int i = 0; i < indent + 1; i++) printf("  ");
 		printf("Symbol table:\n");
 		symbol* sym = node->symbol_table->symbols;
@@ -589,7 +592,7 @@ ast_node* parse_struct_type(parser_state* p)
             consume_token(p);
     }
     struct_node->children = field_list;
-    consume_token_expect(p, TOK_PUNCT, "}");
+    consume_token_expect(p, TOK_PUNCT, CLOSING_BRACE);
     return struct_node;
 }
 
@@ -750,9 +753,10 @@ ast_node* parse_block(parser_state* p)
 	block->symbol_table = parser_create_symbol_table(p);
 	ast_node* current_stmt = 0;
 	u32 block_indent = p->current_token->indent;
-	while(consume_whitespace(p) && block_indent == p->current_token->indent)
+	while(consume_whitespace(p) && block_indent <= p->current_token->indent)
 	{
-		ast_node* stmt = parse_statement(p);
+		ast_node* stmt = 0;
+		stmt = parse_statement(p);
 		if(!current_stmt)
 		{
 			block->children = stmt;

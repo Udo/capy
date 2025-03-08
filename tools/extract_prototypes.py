@@ -1,180 +1,182 @@
 #!/usr/bin/env python3
-import sys, re
-
-# this script is an AI-generated nightmare that is pretty much unmaintainable even by the AI that created it
+import re
+import sys
 
 def remove_comments(code):
-    # Remove C-style (/* */) and C++-style (//) comments.
-    code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
     code = re.sub(r'//.*', '', code)
+    code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
     return code
 
-def normalize_code(code):
-    # Collapse spaces and tabs (but keep newlines intact).
-    code = re.sub(r'[ \t]+', ' ', code)
+def extract_typedef_blocks(code):
+    """Extract typedef blocks (struct/enum/union) and replace with placeholders."""
+    typedef_blocks = {}
+    pattern = re.compile(r'\btypedef\s+(struct|enum|union)\b')
+    i = 0
+    out = []
+    placeholder_index = 0
+    while i < len(code):
+        match = pattern.search(code, i)
+        if not match:
+            out.append(code[i:])
+            break
+        start = match.start()
+        out.append(code[i:start])
+        brace_index = code.find('{', match.end())
+        if brace_index == -1:
+            out.append(code[match.start():])
+            break
+        j = brace_index
+        brace_level = 0
+        while j < len(code):
+            if code[j] == '{':
+                brace_level += 1
+            elif code[j] == '}':
+                brace_level -= 1
+                if brace_level == 0:
+                    break
+            j += 1
+        if j >= len(code):
+            break
+        semicolon_index = code.find(';', j)
+        if semicolon_index == -1:
+            break
+        block = code[start:semicolon_index+1]
+        placeholder = f"__TYPEDEF_PLACEHOLDER_{placeholder_index}__"
+        typedef_blocks[placeholder] = block
+        placeholder_index += 1
+        out.append(placeholder)
+        i = semicolon_index + 1
+    return "".join(out), typedef_blocks
+
+def reinsert_typedef_blocks(code, typedef_blocks):
+    for placeholder, block in typedef_blocks.items():
+        code = code.replace(placeholder, block)
     return code
 
-def extract_declarations(code):
+def skip_string(code, i, quote_char):
+    i += 1
+    n = len(code)
+    while i < n:
+        if code[i] == '\\':
+            i += 2
+        elif code[i] == quote_char:
+            i += 1
+            break
+        else:
+            i += 1
+    return i
+
+def remove_function_bodies(code):
     """
-    Extract top-level declarations:
-      - Function definitions are converted to prototypes (header + ";")
-      - Other top-level statements ending with ';' or blocks are output as-is.
+    Convert function definitions to prototypes by removing their bodies.
+    When encountering a '{', if the immediately preceding non-space character is ')'
+    and the signature snippet (from the previous ';' or newline) doesn't contain
+    a type-def keyword, treat it as a function definition.
     """
-    decls = []
-    buf = ""
-    level = 0
+    out = []
     i = 0
     n = len(code)
     while i < n:
         c = code[i]
+        if c in ('"', "'"):
+            start = i
+            i = skip_string(code, i, c)
+            out.append(code[start:i])
+            continue
         if c == '{':
-            if level == 0:
-                header = buf.strip()
-                buf = ""
-                # Heuristic: if header contains ')' and doesn't start with struct/union/enum,
-                # assume it's a function definition.
-                is_function = (')' in header and
-                               not header.startswith("struct") and
-                               not header.startswith("union") and
-                               not header.startswith("enum"))
-                block = "{"
-                level = 1
-                i += 1
-                while i < n and level > 0:
-                    ch = code[i]
-                    block += ch
-                    if ch == '{':
-                        level += 1
-                    elif ch == '}':
-                        level -= 1
+            j = i - 1
+            while j >= 0 and code[j].isspace():
+                j -= 1
+            if j >= 0 and code[j] == ')':
+                k = j
+                while k >= 0 and code[k] not in ";\n":
+                    k -= 1
+                signature = code[k+1:j+1]
+                if re.search(r'\b(struct|enum|union)\b', signature):
+                    out.append("{")
                     i += 1
-                full_decl = header + " " + block
-                if is_function:
-                    decls.append(header + ";")
-                else:
-                    # Optionally skip enums; adjust if needed.
-                    if header.startswith("enum"):
-                        pass
-                    else:
-                        decls.append(full_decl)
-                continue  # already advanced i
+                    continue
+                out.append(";")
+                i += 1
+                brace_level = 1
+                while i < n and brace_level:
+                    c2 = code[i]
+                    if c2 in ('"', "'"):
+                        i = skip_string(code, i, c2)
+                        continue
+                    elif c2 == '{':
+                        brace_level += 1
+                    elif c2 == '}':
+                        brace_level -= 1
+                    i += 1
+                continue
             else:
-                buf += c
-                level += 1
-        elif c == '}':
-            buf += c
-            level -= 1
-        elif c == ';' and level == 0:
-            buf += c
-            if buf.strip() != ";":
-                decls.append(buf.strip())
-            buf = ""
+                out.append("{")
+                i += 1
+                continue
         else:
-            buf += c
-        i += 1
-    return decls
+            out.append(c)
+            i += 1
+    return "".join(out)
 
-def transform_decl(decl):
-    decl_stripped = decl.strip()
-    if decl_stripped == "" or decl_stripped == ";":
-        return ""
-    # Leave preprocessor directives unchanged.
-    if decl_stripped.startswith("#"):
-        return decl
-    # Skip static declarations.
-    if decl_stripped.startswith("static"):
-        return ""
-    # Already declared extern or typedef.
-    if decl_stripped.startswith("extern") or decl_stripped.startswith("typedef"):
-        return decl
-    # Heuristic for function prototypes:
-    # if it contains '(' (and not "(*") and does not include an initializer,
-    # assume it's a function declaration.
-    if "=" not in decl_stripped and "(" in decl_stripped and "(*" not in decl_stripped:
-        return decl
-    # If it's a block definition (contains '{' and '}'), then:
-    if "{" in decl_stripped and "}" in decl_stripped:
-        # For enums, structs, and unions, leave it unchanged (just ensure trailing semicolon).
-        if (decl_stripped.startswith("enum") or
-            decl_stripped.startswith("struct") or
-            decl_stripped.startswith("union")):
-            result = decl_stripped.rstrip()
-            if not result.endswith(";"):
-                result += ";"
-            return result
-        else:
-            # Other block definitions: just ensure trailing semicolon.
-            result = decl_stripped.rstrip()
-            if not result.endswith(";"):
-                result += ";"
-            return result
-    # Otherwise, assume it's a plain global variable definition that includes an initializer.
-    # Remove the initializer using a regex that removes everything between '=' and the semicolon.
-    if "=" in decl_stripped:
-        import re
-        # This pattern removes the initializer part (from '=' until just before the semicolon)
-        decl_no_init = re.sub(r'\s*=\s*[^;]+', '', decl_stripped).strip()
-        result = "extern " + decl_no_init
-    else:
-        result = "extern " + decl_stripped
-    if not result.endswith(";"):
-        result += ";"
-    return result
+def process_variable_declarations(code):
+    """
+    Transform global variable definitions with initializers into extern declarations.
+    This handles both simple initializers and compound initializers spanning multiple lines.
+    Example:
+      operator_table_def operator_table[] = { ... };
+    becomes:
+      extern operator_table_def operator_table[];
+    """
+    # Match declarations with an initializer (which can span multiple lines)
+    pattern = re.compile(
+        r'^(?!\s*extern\b)([^\n;]*?\b)(\w+\s*(?:\[[^]]*\])?)\s*=\s*.*?;',
+        re.MULTILINE | re.DOTALL)
+    def repl(m):
+        decl = m.group(1)
+        var = m.group(2)
+        return f"extern {decl}{var};"
+    return pattern.sub(repl, code)
 
-def process_declaration(decl):
-    decl = decl.strip()
-    if not decl:
-        return ""
-    # Leave preprocessor directives unchanged.
-    if decl.startswith("#"):
-        return decl
-    # Skip static declarations.
-    if decl.startswith("static"):
-        return ""
-    # If this is a typedef or already an extern declaration, return as is.
-    if decl.startswith("typedef") or decl.startswith("extern"):
-        return decl
-    # If this declaration looks like a function prototype (contains '(' and ')')
-    if '(' in decl and ')' in decl:
-        # If it already ends with a semicolon, assume it's a prototype.
-        if decl.endswith(";"):
-            return decl
+def deduplicate_declarations(code):
+    """Remove duplicate function prototypes generated from forward declarations."""
+    lines = code.splitlines()
+    normalized = []
+    i = 0
+    while i < len(lines):
+        if lines[i].rstrip().endswith(")") and (i+1 < len(lines)) and lines[i+1].strip() == ";":
+            normalized.append(lines[i].rstrip() + ";")
+            i += 2
         else:
-            return decl + ";"
-    # Handle variable initializations: remove the initializer
-    if '=' in decl:
-        import re
-        m = re.match(r'^(.*?)\s*=\s*(\{.*\}|[^;]+)\s*;', decl, re.DOTALL)
-        if m:
-            before_equal = m.group(1).strip() + ";"
-        else:
-            before_equal = decl.split('=', 1)[0].strip()
-            if not before_equal.endswith(";"):
-                before_equal += ";"
-        # Previously "extern " was prepended. Now simply return the cleaned declaration.
-        return before_equal
-    # Otherwise, ensure the declaration ends with a semicolon.
-    if not decl.endswith(";"):
-        decl += ";"
-    return decl
+            normalized.append(lines[i])
+            i += 1
+    seen = set()
+    output = []
+    prototype_pattern = re.compile(r'^\s*(?:extern\s+)?[^(]+\([^)]*\)\s*;')
+    for line in normalized:
+        if prototype_pattern.match(line):
+            key = line.strip()
+            if key in seen:
+                continue
+            seen.add(key)
+        output.append(line)
+    return "\n".join(output)
 
-def main():
-    if len(sys.argv) != 2:
-        sys.exit("Usage: extract_prototypes.py <source_file>")
-    with open(sys.argv[1], 'r') as f:
+def main(filename):
+    with open(filename, 'r') as f:
         code = f.read()
     code = remove_comments(code)
-    code = normalize_code(code)
-    decls = extract_declarations(code)
-    transformed_decls = [transform_decl(d) for d in decls]
-    transformed_decls = [d for d in transformed_decls if d.strip()]
-    # Join all declarations into one output string.
-    output = "\n".join(transformed_decls)
-    # Fix: if a declaration ends with '}' and the next starts with 'extern',
-    # remove the extra 'extern ' so that a typedef enum is properly combined.
-    output = re.sub(r'}\s*\nextern\s+', '} ', output)
-    print(output)
-
+    code, typedef_blocks = extract_typedef_blocks(code)
+    code = remove_function_bodies(code)
+    code = process_variable_declarations(code)
+    code = deduplicate_declarations(code)
+    code = reinsert_typedef_blocks(code, typedef_blocks)
+    header = (
+        code
+    )
+    print(header)
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python script.py <c_file>")
+    main(sys.argv[1])
