@@ -92,18 +92,9 @@ def transform_decl(decl):
     # assume it's a function declaration.
     if "=" not in decl_stripped and "(" in decl_stripped and "(*" not in decl_stripped:
         return decl
-
-    # NEW: Check for an initializer first. If found, strip it.
-    if "=" in decl_stripped:
-        decl_no_init = decl_stripped.split('=', 1)[0].strip()
-        result = "extern " + decl_no_init
-        if not result.endswith(";"):
-            result += ";"
-        return result
-
-    # Now handle block definitions that don't have an '='.
+    # If it's a block definition (contains '{' and '}'), then:
     if "{" in decl_stripped and "}" in decl_stripped:
-        # For enums, structs, and unions, leave them unchanged (just ensure trailing semicolon).
+        # For enums, structs, and unions, leave it unchanged (just ensure trailing semicolon).
         if (decl_stripped.startswith("enum") or
             decl_stripped.startswith("struct") or
             decl_stripped.startswith("union")):
@@ -117,12 +108,55 @@ def transform_decl(decl):
             if not result.endswith(";"):
                 result += ";"
             return result
-
-    # Fallback.
-    result = "extern " + decl_stripped
+    # Otherwise, assume it's a plain global variable definition that includes an initializer.
+    # Remove the initializer using a regex that removes everything between '=' and the semicolon.
+    if "=" in decl_stripped:
+        import re
+        # This pattern removes the initializer part (from '=' until just before the semicolon)
+        decl_no_init = re.sub(r'\s*=\s*[^;]+', '', decl_stripped).strip()
+        result = "extern " + decl_no_init
+    else:
+        result = "extern " + decl_stripped
     if not result.endswith(";"):
         result += ";"
     return result
+
+def process_declaration(decl):
+    decl = decl.strip()
+    if not decl:
+        return ""
+    # Leave preprocessor directives unchanged.
+    if decl.startswith("#"):
+        return decl
+    # Skip static declarations.
+    if decl.startswith("static"):
+        return ""
+    # If this is a typedef or already an extern declaration, return as is.
+    if decl.startswith("typedef") or decl.startswith("extern"):
+        return decl
+    # If this declaration looks like a function prototype (contains '(' and ')')
+    if '(' in decl and ')' in decl:
+        # If it already ends with a semicolon, assume it's a prototype.
+        if decl.endswith(";"):
+            return decl
+        else:
+            return decl + ";"
+    # Handle variable initializations: remove the initializer
+    if '=' in decl:
+        import re
+        m = re.match(r'^(.*?)\s*=\s*(\{.*\}|[^;]+)\s*;', decl, re.DOTALL)
+        if m:
+            before_equal = m.group(1).strip() + ";"
+        else:
+            before_equal = decl.split('=', 1)[0].strip()
+            if not before_equal.endswith(";"):
+                before_equal += ";"
+        # Previously "extern " was prepended. Now simply return the cleaned declaration.
+        return before_equal
+    # Otherwise, ensure the declaration ends with a semicolon.
+    if not decl.endswith(";"):
+        decl += ";"
+    return decl
 
 def main():
     if len(sys.argv) != 2:

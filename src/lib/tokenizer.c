@@ -67,7 +67,9 @@ struct token
 {
 	u8 type;
 	string* content;
-	u32 hblockid; // reserved, maybe unneeded
+	u32 indent;
+	u8 is_first_on_line;
+	u32 hblockid;
 	u64 src_pos;
 	token* next;
 };
@@ -99,12 +101,76 @@ u8 tok_get_char_type(u8 c)
 	return '?';
 }
 
+typedef struct code_position code_position;
+struct code_position
+{
+	u64 line;
+	u64 column;
+};
+
+code_position get_code_position(string* content, u64 pos)
+{
+	code_position cp = {1, 1};
+	for (u64 i = 0; i < pos; i++)
+	{
+		if(content->data[i] == '\n')
+		{
+			cp.line += 1;
+			cp.column = 1;
+		}
+		else
+		{
+			cp.column += 1;
+		}
+	}
+	return cp;
+}
+
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_LIGHTBLUE "\x1b[94m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_LIGHTRED "\x1b[91m"
+#define ANSI_COLOR_GRAY    "\x1b[90m"
+#define ANSI_COLOR_WHITE   "\x1b[97m"
+#define ANSI_COLOR_BOLD    "\x1b[1m"
+#define ANSI_COLOR_DIM     "\x1b[2m"
+#define ANSI_COLOR_UNDER   "\x1b[4m"
+#define ANSI_COLOR_BLINK   "\x1b[5m"
+#define ANSI_COLOR_INV     "\x1b[7m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+void pretty_print_lineatpos(string* content, u64 pos)
+{
+	code_position cp = get_code_position(content, pos);
+	printf(ANSI_COLOR_LIGHTBLUE "%05lu " ANSI_COLOR_BLUE "🮐 " ANSI_COLOR_RESET, cp.line);
+	u64 start = pos;
+	while(start > 0 && content->data[start-1] != '\n')
+		start -= 1;
+	u64 end = pos;
+	while(end < content->length && content->data[end] != '\n')
+		end += 1;
+	u64 len = end - start;
+	char* line = arena_alloc(default_arena, len + 1);
+	memcpy(line, content->data + start, len);
+	line[len] = '\0';
+	printf("%s\n      " ANSI_COLOR_BLUE "🮐" ANSI_COLOR_LIGHTRED "🮣", line);
+	u64 pointer = pos - start;
+	for (u64 i = 0; i < pointer; i++)
+		printf("🭹");
+	printf("🮧🭹🭹🭹🭹🭹\n" ANSI_COLOR_RESET);
+}
+
 token* new_token(u8 ctype, token* prev, u64 pos)
 {
 	token* nt = arena_alloc(default_arena, sizeof(token));
 	nt->content = string_create(8);
 	nt->type = ctype;
 	nt->src_pos = pos;
+	nt->indent = prev->indent;
 	prev->next = nt;
 	return nt;
 }
@@ -121,6 +187,7 @@ void tok_print_single(token* token_current)
 {
 	if(token_current)
 	{
+		printf("%c%i", token_current->type, token_current->indent);
 		if(token_current->type == 'L') // line break
 			printf("\n%05lu: ", token_current->src_pos);
 		else if(token_current->type == 'P')
@@ -133,10 +200,10 @@ void tok_print_single(token* token_current)
 			printf("«%s» ", token_current->content->data);
 		else if(token_current->type == 'S')
 		{
-		//	tok_print_repeat(" ", (u32)token_current->content->length);
+			printf("_");
 		}
 		else if(token_current->type == 'I')
-			tok_print_repeat("    ", (u32)token_current->content->length);
+			tok_print_repeat("﹍", (u32)token_current->content->length);
 		else if(token_current->type == 'A')
 			printf("<|%s|> ", token_current->content->data);
 		else
@@ -151,6 +218,7 @@ void tok_print(token* token_current)
 		tok_print_single(token_current);
 		token_current = token_current->next;
 	}
+	printf("\n");
 }
 
 tokenizer_state* tokenize(string* content, char* filename)
@@ -163,7 +231,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 	u8 lastc = 0;
 	//u8 lastctype = 0;
 	u8 omit_lasttag = 0;
-	u8 is_new_line = 0;
+	u8 is_new_line = 1;
 	s32 xml_level = 0;
 	u32 hblock_count = 0;
 	for (u64 i = 0; i < content->length; i++)
@@ -202,7 +270,13 @@ tokenizer_state* tokenize(string* content, char* filename)
 			}
 			else if(ctype != token_current->type)
 			{
+				if(is_new_line && token_current->type == 'S')
+				{
+					token_current->type = 'I';
+				}
 				token_current = new_token(ctype, token_current, i);
+				if(is_new_line)
+					token_current->is_first_on_line = 1;
 			}
 			
 			// Process special cases for quotes or comments.
@@ -318,11 +392,16 @@ tokenizer_state* tokenize(string* content, char* filename)
 		lastc = c;
 		//lastctype = ctype;
 		if(token_current->type == 'L')
+		{
 			is_new_line = 1;
+			token_current->indent = 0;
+		}
 		else if(token_current->type != 'S')
 			is_new_line = 0;
 		if(is_new_line && token_current->type == 'S')
-			token_current->type = 'I';
+		{
+			token_current->indent = token_current->content->length;
+		}
 	}
 	tokenizer_state* t = arena_alloc(default_arena, sizeof(tokenizer_state));
 	t->tokens = token_list;

@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "*.embeddedhtml": "html",
-        "types.h": "c"
+        "types.h": "c",
+        "complex": "c",
+        "filesystem": "c"
     }
 }

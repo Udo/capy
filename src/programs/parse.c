@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 	}
 	tokenizer_state* t = tokenize(string_read_file(argv[1]), argv[1]);
 	parser_state* p = parse(t);
-	debug_ast_node(p->module_root, 0);
+	debug_ast_node(p->module_root, 0, 0);
 	arena_print_stats(default_arena);
 	return 0;
 }

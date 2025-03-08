@@ -1,3 +1,9 @@
 print("Hello world")
-print(-funca(123+45)*funcb(678+90))
-a=b+2
+new a : u64 = 256
+print(a*a)
+
+block
+    new a : string = "blabla"
+    print(a)
+
+print("the block ended")
