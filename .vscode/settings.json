@@ -3,6 +3,8 @@
         "*.embeddedhtml": "html",
         "types.h": "c",
         "complex": "c",
-        "filesystem": "c"
+        "filesystem": "c",
+        "tokenizer.h": "c",
+        "parser.h": "c"
     }
 }
