@@ -2,6 +2,7 @@
 #include "tokenizer.h"
 #include "parser.h"
 #include "hashmap.h"
+#include "builtin.h"
 
 typedef struct interpreter_scope interpreter_scope;
 struct interpreter_scope

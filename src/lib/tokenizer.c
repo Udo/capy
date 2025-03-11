@@ -7,7 +7,7 @@ typedef enum {
 	TOK_PUNCT = 'P', // every punctuation character gets put into its own token (in token->content)
 	TOK_ALPHA = 'A', // alphanumerical sequence (in token->content)
 	TOK_COMMENT = '#', // comment text (in token->content)
-	TOK_NLITERAL = 'N', // number literal (in token->content)
+	TOK_NUMBER = 'N', // number literal (in token->content)
 	TOK_QLITERAL = 'Q', // quoted string literal (in token->content)
 	TOK_UNKNOWN = '?',
 } token_type;
@@ -166,6 +166,31 @@ void pretty_print_lineatpos(string* content, u64 pos)
 
 token* new_token(u8 ctype, token* prev, u64 pos)
 {
+	if(prev->type == 'A')
+	{
+		// check if token content could be a numeric literal and change type if so
+		u8 is_number = 1;
+		u8 has_dot = 0;
+		for (u64 i = 0; i < prev->content->length; i++)
+		{
+			if(prev->content->data[i] == '.')
+			{
+				if(has_dot)
+				{
+					is_number = 0;
+					break;
+				}
+				has_dot = 1;
+			}
+			else if(!is_digit(prev->content->data[i]))
+			{
+				is_number = 0;
+				break;
+			}
+		}
+		if(is_number)
+			prev->type = 'N';
+	}
 	token* nt = arena_alloc(default_arena, sizeof(token));
 	nt->content = string_create(8);
 	nt->type = ctype;
@@ -403,6 +428,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 			token_current->indent = token_current->content->length;
 		}
 	}
+	token_current = new_token('L', token_current, content->length);
 	tokenizer_state* t = arena_alloc(default_arena, sizeof(tokenizer_state));
 	t->tokens = token_list;
 	t->src = content;

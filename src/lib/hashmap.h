@@ -10,6 +10,7 @@ struct hashmap_entry
 {
     string* key;
     void* value;
+    u32 type_info;
     hashmap_entry* next;
 };
 

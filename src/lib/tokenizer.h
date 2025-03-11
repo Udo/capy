@@ -12,7 +12,7 @@ typedef enum {
 	TOK_PUNCT = 'P', 
 	TOK_ALPHA = 'A', 
 	TOK_COMMENT = '#', 
-	TOK_NLITERAL = 'N', 
+	TOK_NUMBER = 'N', 
 	TOK_QLITERAL = 'Q', 
 	TOK_UNKNOWN = '?',
 } token_type;

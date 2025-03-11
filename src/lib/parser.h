@@ -112,6 +112,8 @@ bool is_end_of_expression(parser_state* p);
 
 int get_precedence(token* tok) ;
 
+void check_identifier(parser_state* p, string* id);
+
 
 
 
@@ -132,7 +134,7 @@ ast_node* parse_struct_type(parser_state* p);
 ast_node* parse_enum_type(parser_state* p);
 ast_node* parse_function_or_grouped_type(parser_state* p);
 
-ast_node* parse_type_expression(parser_state* p);
+ast_node* parse_type_expression(parser_state* p, char* stop_at);
 
 
 
@@ -140,6 +142,8 @@ ast_node* parse_type_expression(parser_state* p);
 
 
 
+
+void declare_symbol(parser_state* p, string* name, ast_node* type);
 
 parser_state* parse(tokenizer_state* tok_state) ;
 

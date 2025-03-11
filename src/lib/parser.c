@@ -338,6 +338,18 @@ int get_precedence(token* tok) {
     return 0;
 }
 
+void check_identifier(parser_state* p, string* id)
+{
+	symbol* sym = parser_find_symbol_by_name(p, id, true);
+	if(!sym)
+	{
+		pretty_print_lineatpos(p->tok->src, p->last_token->src_pos);
+		printf(ANSI_COLOR_BLUE "      🮐 " ANSI_COLOR_RESET);
+		printf("undeclared identifier %s\n", id->data);
+		exit(1);
+	}
+}
+
 // I keep forgetting how this works:
 // https://crockford.com/javascript/tdop/tdop.html
 // https://dl.acm.org/doi/pdf/10.1145/512927.512931
@@ -353,10 +365,11 @@ ast_node* parse_expression_rbp(parser_state* p, int rbp) {
 
     if (tok->type == TOK_ALPHA) 
 	{
+		check_identifier(p, tok->content);
         left = parser_create_node(p, AST_IDENTIFIER, tok);
         left->identifier = tok->content;
     }
-    else if (tok->type == TOK_NLITERAL) 
+    else if (tok->type == TOK_NUMBER) 
 	{
         left = parser_create_node(p, AST_LIT_NUMBER, tok);
         left->lit_value = tok->content;
@@ -536,14 +549,23 @@ ast_node* parse_struct_type(parser_state* p);
 ast_node* parse_enum_type(parser_state* p);
 ast_node* parse_function_or_grouped_type(parser_state* p);
 
-ast_node* parse_type_expression(parser_state* p)
+ast_node* parse_type_expression(parser_state* p, char* stop_at)
 {
     consume_whitespace(p);
     token* tok = p->current_token;
     if (!tok)
+	{
         token_unexpected(p, "expected type expression");
+		return 0;
+	}
 
-    if (tok->type == TOK_ALPHA && string_equals_cstr(tok->content, "struct", false))
+	if (tok->type == TOK_PUNCT && stop_at && string_equals_cstr(tok->content, stop_at, false))
+	{
+        ast_node* n = parser_create_node(p, AST_IDENTIFIER, tok);
+		n->identifier = string_create_from_cstr("auto");
+		return n;
+	}
+    else if (tok->type == TOK_ALPHA && string_equals_cstr(tok->content, "struct", false))
         return parse_struct_type(p);
     else if (tok->type == TOK_ALPHA && string_equals_cstr(tok->content, "enum", false))
         return parse_enum_type(p);
@@ -638,7 +660,7 @@ ast_node* parse_function_or_grouped_type(parser_state* p)
     if (!match_token(p, 0, TOK_PUNCT, ")"))
     {
         do {
-            ast_node* param = parse_type_expression(p);
+            ast_node* param = parse_type_expression(p, ")");
             if (!param)
                 token_unexpected(p, "error parsing parameter type");
             if (!param_list)
@@ -665,7 +687,7 @@ ast_node* parse_function_or_grouped_type(parser_state* p)
     {
         consume_token(p); // consume '->'
         consume_whitespace(p);
-        ast_node* return_type = parse_type_expression(p);
+        ast_node* return_type = parse_type_expression(p, 0);
         ast_node* func_node = parser_create_node(p, AST_DECL_TYPE_FUNCTION, p->current_token);
         func_node->left = param_list;
         func_node->type = return_type;
@@ -696,7 +718,7 @@ ast_node* parse_declaration(parser_state* p)
 	{
 		consume_token(p);
 		consume_whitespace(p);
-		ast_node* type = parse_type_expression(p);
+		ast_node* type = parse_type_expression(p, "=");
 		if(!type)
 			token_unexpected(p, "error parsing type expression");
 		parser_create_symbol(p, n->identifier, type);
@@ -772,6 +794,19 @@ ast_node* parse_block(parser_state* p)
 	return block;
 }
 
+void declare_symbol(parser_state* p, string* name, ast_node* type)
+{
+	symbol* sym = parser_find_symbol_by_name(p, name, true);
+	if(sym)
+	{
+		pretty_print_lineatpos(p->tok->src, sym->type->t->src_pos);
+		printf(ANSI_COLOR_BLUE "      🮐 " ANSI_COLOR_RESET);
+		printf("redeclaration of %s\n", name->data);
+		exit(1);
+	}
+	parser_create_symbol(p, name, type);
+}
+
 parser_state* parse(tokenizer_state* tok_state) {
 	parser_state* p = arena_alloc(default_arena, sizeof(parser_state));
 	p->tok = tok_state;
@@ -779,6 +814,8 @@ parser_state* parse(tokenizer_state* tok_state) {
 	p->module_root = parser_create_node(p, AST_MODULE, tok_state->tokens);
 	p->current_node = p->module_root;
 	p->current_node->symbol_table = parser_create_symbol_table(p);
+	declare_symbol(p, string_create_from_cstr("print"), 
+		parser_create_node(p, AST_DECL_TYPE_FUNCTION, tok_state->tokens));
 	p->module_root->children = parse_block(p);
 	return p;
 }
