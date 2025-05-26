@@ -33,6 +33,7 @@ struct token
 	u8 is_first_on_line;
 	u32 hblockid;
 	u64 src_pos;
+	string* src; 
 	token* next;
 };
 
@@ -76,13 +77,15 @@ code_position get_code_position(string* content, u64 pos);
 
 void pretty_print_lineatpos(string* content, u64 pos);
 
-token* new_token(u8 ctype, token* prev, u64 pos);
+token* new_token(u8 ctype, token* prev, u64 pos, string* src);
 
 void tok_print_repeat(char* str, u32 times);
 
 void tok_print_single(token* token_current);
 
 void tok_print(token* token_current);
+
+token* tokenizer_cleanup(token* token_list);
 
 tokenizer_state* tokenize(string* content, char* filename);
 

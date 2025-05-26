@@ -372,6 +372,22 @@ void string_append_char(string *dest, char ch)
 	_string_zero_guard(dest);
 }
 
+void string_append_u64(string *dest, u64 value)
+{
+	char buf[32];
+	int n = snprintf(buf, sizeof(buf), "%lu", value);
+	if (n < 0)
+		fatal_error("snprintf failed");
+	string_append_cstr(dest, buf);
+}
+
+void string_append_hex(string *dest, u64 value, u64 digits)
+{
+	char buf[32];
+	u64 buf_len = snprintf(buf, sizeof(buf), "0x%0*lx", (int)digits, value);
+	string_append_buffer(dest, buf, buf_len);
+}
+
 void string_clear(string *s)
 {
 	s->length = 0;

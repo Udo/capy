@@ -5,6 +5,15 @@
         "complex": "c",
         "filesystem": "c",
         "tokenizer.h": "c",
-        "parser.h": "c"
+        "parser.h": "c",
+        "__node_handle": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "__locale": "c",
+        "__string": "c",
+        "string": "c",
+        "random": "c",
+        "chrono": "c",
+        "functional": "c"
     }
 }

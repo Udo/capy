@@ -71,6 +71,7 @@ struct token
 	u8 is_first_on_line;
 	u32 hblockid;
 	u64 src_pos;
+	string* src; 
 	token* next;
 };
 
@@ -164,7 +165,7 @@ void pretty_print_lineatpos(string* content, u64 pos)
 	printf("🮧🭹🭹🭹🭹🭹\n" ANSI_COLOR_RESET);
 }
 
-token* new_token(u8 ctype, token* prev, u64 pos)
+token* new_token(u8 ctype, token* prev, u64 pos, string* src)
 {
 	if(prev->type == 'A')
 	{
@@ -195,6 +196,7 @@ token* new_token(u8 ctype, token* prev, u64 pos)
 	nt->content = string_create(8);
 	nt->type = ctype;
 	nt->src_pos = pos;
+	nt->src = src;
 	nt->indent = prev->indent;
 	prev->next = nt;
 	return nt;
@@ -212,24 +214,24 @@ void tok_print_single(token* token_current)
 {
 	if(token_current)
 	{
-		printf("%c%i", token_current->type, token_current->indent);
-		if(token_current->type == 'L') // line break
+		if(token_current->is_first_on_line) // line break
 			printf("\n%05lu: ", token_current->src_pos);
-		else if(token_current->type == 'P')
+		printf("%c%i", token_current->type, token_current->indent);
+		if(token_current->type == 'P') // punctuation
 			printf("%s ", token_current->content->data);
-		else if(token_current->type == 'H')
+		else if(token_current->type == 'H') // HTML block
 			printf(" H%i'%s'H%i ", token_current->hblockid, token_current->content->data, token_current->hblockid);
-		else if(token_current->type == '#')
+		else if(token_current->type == '#') // comment
 			printf("/* %s */", token_current->content->data);
-		else if(token_current->type == 'Q')
+		else if(token_current->type == 'Q') // quoted string
 			printf("«%s» ", token_current->content->data);
-		else if(token_current->type == 'S')
+		else if(token_current->type == 'S') 
 		{
 			printf("_");
 		}
-		else if(token_current->type == 'I')
+		else if(token_current->type == 'I') // indent
 			tok_print_repeat("﹍", (u32)token_current->content->length);
-		else if(token_current->type == 'A')
+		else if(token_current->type == 'A') // alphanumerical sequence
 			printf("<|%s|> ", token_current->content->data);
 		else
 			printf("<%c %s> ", token_current->type, token_current->content->data);
@@ -246,11 +248,41 @@ void tok_print(token* token_current)
 	printf("\n");
 }
 
+token* tokenizer_cleanup(token* token_list)
+{
+	token* first = 0;
+	token* current = 0;
+	while(token_list)
+	{
+		if(token_list->type == 'L' || token_list->type == 'S' || token_list->type == 'I')
+		{
+			token_list = token_list->next;
+			continue;
+		}
+		if(!first)
+		{
+			first = token_list;
+			current = token_list;
+		}
+		else
+		{
+			current->next = token_list;
+			current = current->next;
+		}
+		token_list = token_list->next;
+	}
+	if(current->next && (current->next->type == 'L' || current->next->type == 'S' || current->next->type == 'I'))
+		current->next = 0;
+	return first;
+}
+
 tokenizer_state* tokenize(string* content, char* filename)
 {
 	token* token_list = arena_alloc(default_arena, sizeof(token));
 	token_list->content = string_create(8);
 	token_list->type = 'L';
+	token_list->src_pos = 1;
+	token_list->src = content;
 	token* token_current = token_list;
 	u8 pmode = '.';
 	u8 lastc = 0;
@@ -290,7 +322,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 				else
 				{
 					// Not a valid extension: finish current token and start a new punctuation token.
-					token_current = new_token(ctype, token_current, i);
+					token_current = new_token(ctype, token_current, i, content);
 				}
 			}
 			else if(ctype != token_current->type)
@@ -299,7 +331,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 				{
 					token_current->type = 'I';
 				}
-				token_current = new_token(ctype, token_current, i);
+				token_current = new_token(ctype, token_current, i, content);
 				if(is_new_line)
 					token_current->is_first_on_line = 1;
 			}
@@ -352,7 +384,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 			{
 				pmode = '.';
 				i += 1;
-				token_current = new_token(0, token_current, i);
+				token_current = new_token(0, token_current, i, content);
 			}
 			else
 			{
@@ -364,7 +396,7 @@ tokenizer_state* tokenize(string* content, char* filename)
 			if (c == '\n')
 			{
 				pmode = '.';
-				token_current = new_token('L', token_current, i+1);
+				token_current = new_token('L', token_current, i+1, content);
 			}
 			else
 			{
@@ -428,9 +460,9 @@ tokenizer_state* tokenize(string* content, char* filename)
 			token_current->indent = token_current->content->length;
 		}
 	}
-	token_current = new_token('L', token_current, content->length);
+	token_current = new_token('L', token_current, content->length, content);
 	tokenizer_state* t = arena_alloc(default_arena, sizeof(tokenizer_state));
-	t->tokens = token_list;
+	t->tokens = tokenizer_cleanup(token_list);
 	t->src = content;
 	t->filename = string_create_from_cstr(filename);
 	return t;

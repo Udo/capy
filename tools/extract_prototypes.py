@@ -159,6 +159,9 @@ def deduplicate_declarations(code):
             if key in seen:
                 continue
             seen.add(key)
+        # omit lines that start with static
+        if line.strip().startswith("static"):
+            continue
         output.append(line)
     return "\n".join(output)
 

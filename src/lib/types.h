@@ -109,6 +109,10 @@ void string_append_cstr(string *dest, char *cstr);
 
 void string_append_char(string *dest, char ch);
 
+void string_append_u64(string *dest, u64 value);
+
+void string_append_hex(string *dest, u64 value, u64 digits);
+
 void string_clear(string *s);
 
 void string_free(string *s);
