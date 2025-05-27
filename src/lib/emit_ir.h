@@ -19,6 +19,8 @@ struct emitter_state
 
 
 
+void emit_block(emitter_state* e, ast_node* block);
+
 string* emit_ir(parser_state* p);
 
 #endif /* SRC_LIB_EMIT_IR_H */

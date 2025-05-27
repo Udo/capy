@@ -9,20 +9,23 @@ typedef enum {
     AST_EXPRESSION,
 	AST_FNCALL,
 	AST_PARAM,
-	AST_STRING,
+	AST_STRINGLITERAL,
+	AST_REF,
 } ast_node_type;
 
 typedef struct ast_node ast_node;
-
 struct ast_node
 {
 	token* t;
 	s32 node_type;
 	ast_node* next;
 	ast_node* children;
-	ast_node* last_child;
-	token* identifier;
-	s32 counter;
+	ast_node* children_last;
+	ast_node* literals;
+	ast_node* ref;
+	string* identifier;
+	u64 counter;
+	u64 id;
 	ast_node* rvalue;
 };
 
@@ -34,11 +37,13 @@ struct parser_state
 	token* last_token;
 	ast_node* module_root;
 	ast_node* current_node;
+	u64 id_counter;
 };
 
 ast_node* parser_create_node(parser_state* p, ast_node_type type) 
 {
 	ast_node* node = arena_alloc(default_arena, sizeof(ast_node));
+	node->id = p->id_counter++;
 	node->t = p->current_token;
 	node->node_type = type;
 	return node;
@@ -52,7 +57,8 @@ void debug_print_nodetype(ast_node_type type)
 		case AST_EXPRESSION: printf("EXPRESSION"); break;
 		case AST_FNCALL: printf("FNCALL"); break;
 		case AST_PARAM: printf("PARAM"); break;
-		case AST_STRING: printf("STRING"); break;
+		case AST_REF: printf("REF"); break;
+		case AST_STRINGLITERAL: printf("STRINGLITERAL"); break;
 		default: printf("UNKNOWN");
 	}
 }
@@ -103,9 +109,9 @@ ast_node* parser_append_child(ast_node* parent, ast_node* child)
 	if (!parent->children) {
 		parent->children = child;
 	} else {
-		parent->last_child->next = child;
+		parent->children_last->next = child;
 	}
-	parent->last_child = child;
+	parent->children_last = child;
 	child->next = NULL;
 	return child;
 }
@@ -113,7 +119,7 @@ ast_node* parser_append_child(ast_node* parent, ast_node* child)
 ast_node* parse_function_call(parser_state* p)
 {
 	ast_node* fncall = parser_create_node(p, AST_FNCALL);
-	fncall->identifier = p->current_token;
+	fncall->identifier = p->current_token->content;
 	parser_next_token(p);
 	parser_expect(p, 0, TOK_PUNCT, "(");
 	parser_next_token(p);
@@ -136,6 +142,19 @@ ast_node* parse_function_call(parser_state* p)
 	return fncall;
 }
 
+ast_node* parser_get_or_create_literal(parser_state* p, token* t) 
+{
+	ast_node* new_lit = parser_create_node(p, AST_STRINGLITERAL);
+	new_lit->identifier = t->content;
+	new_lit->t = t;
+	new_lit->next = p->module_root->literals;
+	if(p->module_root->literals) 
+		p->module_root->literals->next = new_lit;
+	else 
+		p->module_root->literals = new_lit;
+	return new_lit;
+}
+
 ast_node* parse_expression(parser_state* p) 
 {
 	ast_node* expr = parser_create_node(p, AST_EXPRESSION);
@@ -148,8 +167,8 @@ ast_node* parse_expression(parser_state* p)
 	}  
 	else if(parser_match(p, 0, TOK_QLITERAL, 0)) 
 	{
-		ast_node* val = parser_append_child(expr, parser_create_node(p, AST_STRING));
-		val->identifier = p->current_token;
+		ast_node* val = parser_append_child(expr, parser_create_node(p, AST_REF));
+		val->ref = parser_get_or_create_literal(p, p->current_token);
 		parser_next_token(p);
 	} 
 	else 
@@ -208,8 +227,19 @@ void debug_ast_node(ast_node* node, s32 indent, s32 sameline)
 	if(node->node_type == AST_MODULE || node->node_type == AST_BLOCK || node->node_type == AST_EXPRESSION || node->node_type == AST_FNCALL)
 	{
 		if(node->identifier)
-			printf(" %s", string_cstr(node->identifier->content));
+			printf(" %s", string_cstr(node->identifier));
 		printf("\n");
+		if(node->literals)
+		{
+			ast_node* lit = node->literals;
+			while(lit)
+			{
+				printf(ANSI_COLOR_GREEN "      | #%lu ", lit->id);
+				debug_print_nodetype(lit->node_type);
+				printf(" '%s'\n" ANSI_COLOR_RESET, string_cstr(lit->identifier));
+				lit = lit->next;
+			}
+		}
 		ast_node* c = node->children;
 		while(c)
 		{
@@ -219,12 +249,16 @@ void debug_ast_node(ast_node* node, s32 indent, s32 sameline)
 	}
 	else if(node->node_type == AST_PARAM)
 	{
-		printf(" %i ", node->counter);
+		printf(" %lu ", node->counter);
 		debug_ast_node(node->rvalue, indent+1, 1);
 	}
-	else if(node->node_type == AST_STRING)
+	else if(node->node_type == AST_REF)
 	{
-		printf(" '%s' ", string_cstr(node->identifier->content));
+		printf(" #%lu \n", node->ref->id);
+	}
+	else if(node->node_type == AST_STRINGLITERAL)
+	{
+		printf(" '%s' ", string_cstr(node->identifier));
 		debug_ast_node(node->rvalue, indent+1, 1);
 		printf("\n");
 	}

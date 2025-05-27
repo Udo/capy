@@ -69,6 +69,7 @@ struct token
 	string* content;
 	u32 indent;
 	u8 is_first_on_line;
+	u8 is_operator;
 	u32 hblockid;
 	u64 src_pos;
 	string* src; 
@@ -254,7 +255,11 @@ token* tokenizer_cleanup(token* token_list)
 	token* current = 0;
 	while(token_list)
 	{
-		if(token_list->type == 'L' || token_list->type == 'S' || token_list->type == 'I')
+		if(token_list->type == 'P' && !string_equals_cstr(token_list->content, ")", true) && !string_equals_cstr(token_list->content, "(", true))
+		{
+			token_list->is_operator = true;
+		}
+		if(token_list->type == 'L' || token_list->type == 'S' || token_list->type == 'I' || token_list->type == '#')
 		{
 			token_list = token_list->next;
 			continue;
@@ -271,7 +276,7 @@ token* tokenizer_cleanup(token* token_list)
 		}
 		token_list = token_list->next;
 	}
-	if(current->next && (current->next->type == 'L' || current->next->type == 'S' || current->next->type == 'I'))
+	if(current->next && (current->next->type == 'L' || current->next->type == 'S' || current->next->type == 'I' || current->next->type == '#'))
 		current->next = 0;
 	return first;
 }

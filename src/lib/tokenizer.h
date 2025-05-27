@@ -31,6 +31,7 @@ struct token
 	string* content;
 	u32 indent;
 	u8 is_first_on_line;
+	u8 is_operator;
 	u32 hblockid;
 	u64 src_pos;
 	string* src; 

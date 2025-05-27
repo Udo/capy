@@ -74,6 +74,27 @@ static void emit_function_footer(emitter_state* e, char* return_type, char* retu
     string_append_cstr(e->out, "}\n");
 }
 
+void emit_block(emitter_state* e, ast_node* block)
+{
+    while(block->node_type == AST_BLOCK && block->children) 
+    {
+
+        for (ast_node* child = block; child; child = child->next) {
+            if (child->node_type == AST_FNCALL) 
+            {
+                // string_append_cstr(e->out, "  %call = call i32 @puts(i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str_7, i32 0, i32 0))\n");
+            } 
+            else 
+            {
+                // todo
+            }
+        }
+
+        block = block->next;
+
+    }
+}
+
 string* emit_ir(parser_state* p)
 {
     emitter_state* e = arena_alloc(default_arena, sizeof(emitter_state));
@@ -83,11 +104,28 @@ string* emit_ir(parser_state* p)
     string_append_cstr(e->out, "target triple = \"x86_64-pc-linux-gnu\"\n");
     string_append_cstr(e->out, "\n");
     //emit_vector(e, ".str", "private constant", "i8", 1, 14, (u8*)"Hello, Capy!\0");
-    emit_string(e, ".str", "Hello, Capy!\0");
+    //emit_string(e, ".str", "Hello, Capy!\0");
     emit_external(e, "i32", "puts", "i8* nocapture");
+    if(p->module_root->literals)
+    {
+        ast_node* lit = p->module_root->literals;
+        while(lit)
+        {
+            if(lit->node_type == AST_STRINGLITERAL && lit->identifier)
+            {
+                char* name = arena_alloc(default_arena, 32);
+                snprintf(name, 32, ".str_%lu", lit->id);
+                emit_string(e, name, string_cstr(lit->identifier));
+            }
+            lit = lit->next;
+        }
+    }
     string_append_cstr(e->out, "\n");
     emit_function_header(e, "i32", "main", "");
-    string_append_cstr(e->out, "  %call = call i32 @puts(i8* getelementptr inbounds ([14 x i8], [14 x i8]* @.str, i32 0, i32 0))\n");
+
+    emit_block(e, p->module_root->children);
+
+    //
     emit_function_footer(e, "i32", "0");
 
     return e->out;

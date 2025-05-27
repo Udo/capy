@@ -14,20 +14,23 @@ typedef enum {
     AST_EXPRESSION,
 	AST_FNCALL,
 	AST_PARAM,
-	AST_STRING,
+	AST_STRINGLITERAL,
+	AST_REF,
 } ast_node_type;
 
 typedef struct ast_node ast_node;
-
 struct ast_node
 {
 	token* t;
 	s32 node_type;
 	ast_node* next;
 	ast_node* children;
-	ast_node* last_child;
-	token* identifier;
-	s32 counter;
+	ast_node* children_last;
+	ast_node* literals;
+	ast_node* ref;
+	string* identifier;
+	u64 counter;
+	u64 id;
 	ast_node* rvalue;
 };
 
@@ -39,6 +42,7 @@ struct parser_state
 	token* last_token;
 	ast_node* module_root;
 	ast_node* current_node;
+	u64 id_counter;
 };
 
 ast_node* parser_create_node(parser_state* p, ast_node_type type);
@@ -58,6 +62,8 @@ ast_node* parse_expression(parser_state* p);
 ast_node* parser_append_child(ast_node* parent, ast_node* child);
 
 ast_node* parse_function_call(parser_state* p);
+
+ast_node* parser_get_or_create_literal(parser_state* p, token* t);
 
 
 ast_node* parse_block(parser_state* p);
